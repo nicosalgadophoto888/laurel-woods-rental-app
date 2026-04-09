@@ -303,6 +303,15 @@ const blankPayment = {
   notes: "",
 };
 
+const blankCharge = {
+  id: "",
+  tenantId: "",
+  chargeMonth: new Date().toISOString().slice(0, 7),
+  dueDate: new Date().toISOString().slice(0, 10),
+  rentAmount: "",
+  otherCharges: "0",
+};
+
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [authenticated, setAuthenticated] = useState(false);
@@ -313,6 +322,7 @@ export default function HomePage() {
   const [unitForm, setUnitForm] = useState(blankUnit);
   const [tenantForm, setTenantForm] = useState(blankTenant);
   const [paymentForm, setPaymentForm] = useState(blankPayment);
+  const [chargeForm, setChargeForm] = useState(blankCharge);
   const [documentTenantId, setDocumentTenantId] = useState("");
   const [statementTenantId, setStatementTenantId] = useState("");
   const [letterTenantId, setLetterTenantId] = useState("");
@@ -529,11 +539,22 @@ export default function HomePage() {
       return;
     }
     const selectedUnit = state.units.find((unit) => unit.id === tenantForm.unitId);
+    const existingTenant = tenantForm.id ? state.tenants.find((tenant) => tenant.id === tenantForm.id) : null;
+    const oldUnitId = existingTenant?.unitId || "";
     const nextState = {
       ...state,
-      units: state.units.map((unit) =>
-        unit.id === tenantForm.unitId ? { ...unit, status: "Occupied" } : unit
-      ),
+      units: state.units.map((unit) => {
+        const someoneElseStillInOldUnit = state.tenants.some(
+          (tenant) => tenant.id !== tenantForm.id && tenant.unitId === oldUnitId && tenant.status === "Active"
+        );
+        if (unit.id === tenantForm.unitId) {
+          return { ...unit, status: "Occupied" };
+        }
+        if (oldUnitId && unit.id === oldUnitId && oldUnitId !== tenantForm.unitId && !someoneElseStillInOldUnit) {
+          return { ...unit, status: "Vacant" };
+        }
+        return unit;
+      }),
       tenants: tenantForm.id
         ? state.tenants.map((tenant) =>
             tenant.id === tenantForm.id
@@ -621,6 +642,54 @@ export default function HomePage() {
     setPaymentForm(blankPayment);
   }
 
+  async function saveCharge() {
+    if (!state) return;
+    const tenantId = chargeForm.tenantId || selectedTenant?.id || "";
+    if (!tenantId) {
+      setError("Select a tenant before saving the charge.");
+      return;
+    }
+    if (!chargeForm.chargeMonth) {
+      setError("Enter the charge month before saving.");
+      return;
+    }
+    if (!chargeForm.dueDate) {
+      setError("Enter the due date before saving.");
+      return;
+    }
+    const rentAmount = Number(chargeForm.rentAmount || 0);
+    const otherCharges = Number(chargeForm.otherCharges || 0);
+    if (rentAmount + otherCharges <= 0) {
+      setError("Enter a charge amount greater than 0 before saving.");
+      return;
+    }
+
+    const totalCharge = rentAmount + otherCharges;
+    const nextCharge = {
+      id: chargeForm.id || `charge-${tenantId}-${chargeForm.chargeMonth}-${Date.now()}`,
+      tenantId,
+      chargeMonth: chargeForm.chargeMonth,
+      dueDate: chargeForm.dueDate,
+      rentAmount,
+      otherCharges,
+      totalCharge,
+    };
+
+    const nextState = {
+      ...state,
+      rentCharges: chargeForm.id
+        ? state.rentCharges.map((charge) => (charge.id === chargeForm.id ? nextCharge : charge))
+        : [...state.rentCharges, nextCharge],
+    };
+
+    await persist(nextState);
+    setChargeForm({
+      ...blankCharge,
+      tenantId,
+      rentAmount: selectedTenant?.monthlyRent ? String(selectedTenant.monthlyRent) : "",
+    });
+  }
+
   async function uploadContract(event) {
     const file = event.target.files?.[0];
     if (!file || !state || !documentTenantId) return;
@@ -677,17 +746,29 @@ export default function HomePage() {
 
   async function removeTenant(tenant) {
     if (!state) return;
-    if (tenant.payments.length || tenant.charges.length || state.tenantDocuments.some((document) => document.tenantId === tenant.id)) {
-      setError("Remove this tenant's payments, charges, and documents before deleting the tenant.");
+    if (
+      !window.confirm(
+        `Delete tenant ${tenant.fullName} permanently? This will also remove all charges, payments, and documents tied to this tenant.`
+      )
+    ) {
       return;
     }
-    if (!window.confirm(`Delete tenant ${tenant.fullName}?`)) return;
-    await persist({
+
+    const nextState = {
       ...state,
       tenants: state.tenants.filter((item) => item.id !== tenant.id),
-    });
+      payments: state.payments.filter((item) => item.tenantId !== tenant.id),
+      rentCharges: state.rentCharges.filter((item) => item.tenantId !== tenant.id),
+      tenantDocuments: state.tenantDocuments.filter((item) => item.tenantId !== tenant.id),
+      units: state.units.map((unit) =>
+        unit.id === tenant.unitId ? { ...unit, status: "Vacant" } : unit
+      ),
+    };
+    const saved = await persist(nextState);
     setTenantForm(blankTenant);
-    setSelectedTenantId("");
+    setChargeForm(blankCharge);
+    setSelectedTenantId(saved.derivedTenants?.[0]?.id || "");
+    setStatementTenantId(saved.derivedTenants?.[0]?.id || "");
   }
 
   function editUnit(unit) {
@@ -726,6 +807,30 @@ export default function HomePage() {
       notes: payment.notes || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function editCharge(charge) {
+    setChargeForm({
+      id: charge.id,
+      tenantId: charge.tenantId,
+      chargeMonth: charge.chargeMonth || "",
+      dueDate: charge.dueDate || "",
+      rentAmount: String(charge.rentAmount ?? charge.totalCharge ?? ""),
+      otherCharges: String(charge.otherCharges ?? 0),
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function removeCharge(charge) {
+    if (!state) return;
+    if (!window.confirm(`Delete the ${monthLabel(charge.chargeMonth)} charge for ${money(charge.totalCharge)}?`)) return;
+    await persist({
+      ...state,
+      rentCharges: state.rentCharges.filter((item) => item.id !== charge.id),
+    });
+    if (chargeForm.id === charge.id) {
+      setChargeForm(blankCharge);
+    }
   }
 
   async function removePayment(payment) {
@@ -946,6 +1051,15 @@ export default function HomePage() {
     if (!state || !derivedTenants.length) return;
     openPrintWindow(allStatementsHtml(state.property, derivedTenants));
   }
+
+  useEffect(() => {
+    if (!selectedTenant || chargeForm.id) return;
+    setChargeForm((current) => ({
+      ...current,
+      tenantId: selectedTenant.id,
+      rentAmount: current.rentAmount || String(selectedTenant.monthlyRent || ""),
+    }));
+  }, [selectedTenant?.id, selectedTenant?.monthlyRent]);
 
   if (loading) {
     return (
@@ -1333,6 +1447,50 @@ export default function HomePage() {
               </div>
               <div className="list-item">
                 <h3>Ledger Details</h3>
+                <div className="form-grid" style={{ marginBottom: 16 }}>
+                  <div className="field">
+                    <label>Charge month</label>
+                    <input
+                      type="month"
+                      value={chargeForm.chargeMonth}
+                      onChange={(event) => setChargeForm((current) => ({ ...current, chargeMonth: event.target.value }))}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Due date</label>
+                    <input
+                      type="date"
+                      value={chargeForm.dueDate}
+                      onChange={(event) => setChargeForm((current) => ({ ...current, dueDate: event.target.value }))}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Rent amount</label>
+                    <input
+                      type="number"
+                      value={chargeForm.rentAmount}
+                      onChange={(event) => setChargeForm((current) => ({ ...current, rentAmount: event.target.value }))}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Other charges</label>
+                    <input
+                      type="number"
+                      value={chargeForm.otherCharges}
+                      onChange={(event) => setChargeForm((current) => ({ ...current, otherCharges: event.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="button-row" style={{ justifyContent: "start", marginBottom: 16 }}>
+                  <button className="action" onClick={saveCharge} disabled={busy}>
+                    {chargeForm.id ? "Save Charge Changes" : "Add Charge"}
+                  </button>
+                  {chargeForm.id ? (
+                    <button className="action secondary" onClick={() => setChargeForm(blankCharge)} disabled={busy}>
+                      Cancel Charge Edit
+                    </button>
+                  ) : null}
+                </div>
                 <table className="table">
                   <thead>
                     <tr>
@@ -1341,6 +1499,7 @@ export default function HomePage() {
                       <th>Applied</th>
                       <th>Remaining</th>
                       <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1351,6 +1510,16 @@ export default function HomePage() {
                         <td>{money(charge.appliedAmount)}</td>
                         <td>{money(charge.remainingBalance)}</td>
                         <td>{charge.status}</td>
+                        <td>
+                          <div className="button-row" style={{ justifyContent: "start" }}>
+                            <button className="action secondary" onClick={() => editCharge(charge)}>
+                              Edit
+                            </button>
+                            <button className="action danger" onClick={() => removeCharge(charge)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1512,6 +1681,7 @@ export default function HomePage() {
                           <th>Applied</th>
                           <th>Remaining</th>
                           <th>Status</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1522,6 +1692,16 @@ export default function HomePage() {
                             <td>{money(charge.appliedAmount)}</td>
                             <td>{money(charge.remainingBalance)}</td>
                             <td>{charge.status}</td>
+                            <td>
+                              <div className="button-row" style={{ justifyContent: "start" }}>
+                                <button className="action secondary" onClick={() => editCharge(charge)}>
+                                  Edit
+                                </button>
+                                <button className="action danger" onClick={() => removeCharge(charge)}>
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
