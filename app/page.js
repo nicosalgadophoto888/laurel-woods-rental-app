@@ -292,11 +292,14 @@ export default function HomePage() {
   const [letterTenantId, setLetterTenantId] = useState("");
   const [letterBody, setLetterBody] = useState("");
   const [tenantSearch, setTenantSearch] = useState("");
+  const [tenantStatusFilter, setTenantStatusFilter] = useState("Active");
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const derivedTenants = state?.derivedTenants || [];
   const filteredTenants = derivedTenants.filter((tenant) => {
+    if (tenantStatusFilter === "Active" && tenant.status !== "Active") return false;
+    if (tenantStatusFilter === "Moved Out" && tenant.status !== "Moved Out") return false;
     const search = tenantSearch.trim().toLowerCase();
     if (!search) return true;
     return [
@@ -837,6 +840,82 @@ export default function HomePage() {
     URL.revokeObjectURL(url);
   }
 
+  function exportBackup() {
+    if (!state) return;
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      property: state.property,
+      settings: state.settings,
+      units: state.units,
+      tenants: state.tenants,
+      tenantDocuments: state.tenantDocuments,
+      rentCharges: state.rentCharges,
+      payments: state.payments,
+    };
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laurel-woods-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function moveOutTenant(tenant) {
+    if (!state) return;
+    if (!window.confirm(`Mark ${tenant.fullName} as moved out and keep the history?`)) return;
+
+    const nextState = {
+      ...state,
+      tenants: state.tenants.map((item) =>
+        item.id === tenant.id
+          ? {
+              ...item,
+              status: "Moved Out",
+            }
+          : item
+      ),
+      units: state.units.map((unit) =>
+        unit.id === tenant.unitId
+          ? {
+              ...unit,
+              status: "Vacant",
+            }
+          : unit
+      ),
+    };
+
+    await persist(nextState);
+    setTenantForm(blankTenant);
+  }
+
+  async function reactivateTenant(tenant) {
+    if (!state) return;
+    const nextState = {
+      ...state,
+      tenants: state.tenants.map((item) =>
+        item.id === tenant.id
+          ? {
+              ...item,
+              status: "Active",
+            }
+          : item
+      ),
+      units: state.units.map((unit) =>
+        unit.id === tenant.unitId
+          ? {
+              ...unit,
+              status: "Occupied",
+            }
+          : unit
+      ),
+    };
+    await persist(nextState);
+  }
+
   function printAllStatements() {
     if (!state || !derivedTenants.length) return;
     openPrintWindow(allStatementsHtml(state.property, derivedTenants));
@@ -916,6 +995,9 @@ export default function HomePage() {
             <p>Standalone property management app for Laurel Woods.</p>
           </div>
           <div className="button-row">
+            <button className="action secondary" onClick={exportBackup}>
+              Export Backup
+            </button>
             <button className="action secondary" onClick={exportExecutiveReport}>
               Export Executive Report
             </button>
@@ -1093,6 +1175,14 @@ export default function HomePage() {
                   placeholder="Search by name, unit, parking, phone, or email"
                 />
               </div>
+              <div className="field">
+                <label>Tenant status</label>
+                <select value={tenantStatusFilter} onChange={(event) => setTenantStatusFilter(event.target.value)}>
+                  <option value="Active">Active</option>
+                  <option value="Moved Out">Moved Out</option>
+                  <option value="All">All</option>
+                </select>
+              </div>
               <div className="list">
                 {filteredTenants.map((tenant) => (
                   <button
@@ -1110,7 +1200,7 @@ export default function HomePage() {
                       Unit {tenant.unit?.unitNumber || "—"} · Parking {tenant.unit?.parkingSpot || "—"}<br />
                       Lease: {longDate(tenant.leaseStart)} to {longDate(tenant.leaseEnd)}<br />
                       Rent {money(tenant.monthlyRent)} · Deposit {money(tenant.depositAmount)}<br />
-                      Balance {money(tenant.outstandingBalance)}
+                      Status {tenant.status} · Balance {money(tenant.outstandingBalance)}
                     </div>
                   </button>
                 ))}
@@ -1143,14 +1233,24 @@ export default function HomePage() {
                     <span className={`pill ${selectedTenant.outstandingBalance > 0 ? "warn" : ""}`}>
                       {selectedTenant.outstandingBalance > 0 ? "Balance Due" : "Current"}
                     </span>
+                    <span className="pill">{selectedTenant.status}</span>
                     {selectedTenant.alert ? <span className="pill danger">Red Flag</span> : null}
                   </div>
                   <div className="button-row" style={{ justifyContent: "start", marginTop: 16 }}>
                     <button className="action secondary" onClick={() => editTenant(selectedTenant)}>
                       Edit Tenant
                     </button>
+                    {selectedTenant.status !== "Moved Out" ? (
+                      <button className="action warn" onClick={() => moveOutTenant(selectedTenant)}>
+                        Move Out / Archive
+                      </button>
+                    ) : (
+                      <button className="action secondary" onClick={() => reactivateTenant(selectedTenant)}>
+                        Reactivate
+                      </button>
+                    )}
                     <button className="action danger" onClick={() => removeTenant(selectedTenant)}>
-                      Delete Tenant
+                      Delete Permanently
                     </button>
                   </div>
                 </div>
