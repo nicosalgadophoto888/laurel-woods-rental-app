@@ -189,6 +189,62 @@ function warningLetterHtml(property, tenant, body) {
   </html>`;
 }
 
+function allStatementsHtml(property, tenants) {
+  const sections = tenants
+    .map(
+      (tenant) => `
+        <section style="page-break-after: always; margin-bottom: 40px;">
+          <h1 style="margin: 0 0 12px;">${escapeHtml(property.name)} Ledger Statement</h1>
+          <div style="color:#6f6557; font-size:14px; line-height:1.7; margin-bottom: 14px;">
+            Tenant: ${escapeHtml(tenant.fullName)}<br />
+            Unit: ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />
+            Parking: ${escapeHtml(tenant.unit?.parkingSpot || "—")}<br />
+            Outstanding Balance: <strong>${escapeHtml(money(tenant.outstandingBalance))}</strong>
+          </div>
+          <table style="width:100%; border-collapse: collapse;">
+            <thead>
+              <tr>
+                <th style="border-bottom:1px solid #d9cdb9; text-align:left; padding:10px 8px;">Month</th>
+                <th style="border-bottom:1px solid #d9cdb9; text-align:left; padding:10px 8px;">Charge</th>
+                <th style="border-bottom:1px solid #d9cdb9; text-align:left; padding:10px 8px;">Applied</th>
+                <th style="border-bottom:1px solid #d9cdb9; text-align:left; padding:10px 8px;">Remaining</th>
+                <th style="border-bottom:1px solid #d9cdb9; text-align:left; padding:10px 8px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tenant.charges
+                .map(
+                  (charge) => `
+                    <tr>
+                      <td style="border-bottom:1px solid #d9cdb9; padding:10px 8px;">${escapeHtml(monthLabel(charge.chargeMonth))}</td>
+                      <td style="border-bottom:1px solid #d9cdb9; padding:10px 8px;">${escapeHtml(money(charge.totalCharge))}</td>
+                      <td style="border-bottom:1px solid #d9cdb9; padding:10px 8px;">${escapeHtml(money(charge.appliedAmount))}</td>
+                      <td style="border-bottom:1px solid #d9cdb9; padding:10px 8px;">${escapeHtml(money(charge.remainingBalance))}</td>
+                      <td style="border-bottom:1px solid #d9cdb9; padding:10px 8px;">${escapeHtml(charge.status)}</td>
+                    </tr>
+                  `
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </section>
+      `
+    )
+    .join("");
+
+  return `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>All Tenant Statements</title>
+      <style>
+        body { font-family: Georgia, serif; color:#2e2418; padding:32px; }
+      </style>
+    </head>
+    <body>${sections}</body>
+  </html>`;
+}
+
 const blankUnit = {
   unitNumber: "",
   parkingSpot: "",
@@ -231,15 +287,33 @@ export default function HomePage() {
   const [statementTenantId, setStatementTenantId] = useState("");
   const [letterTenantId, setLetterTenantId] = useState("");
   const [letterBody, setLetterBody] = useState("");
+  const [tenantSearch, setTenantSearch] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const derivedTenants = state?.derivedTenants || [];
+  const filteredTenants = derivedTenants.filter((tenant) => {
+    const search = tenantSearch.trim().toLowerCase();
+    if (!search) return true;
+    return [
+      tenant.fullName,
+      tenant.email,
+      tenant.phone,
+      tenant.unit?.unitNumber,
+      tenant.unit?.parkingSpot,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(search));
+  });
+  const selectedTenant =
+    derivedTenants.find((tenant) => tenant.id === selectedTenantId) || filteredTenants[0] || derivedTenants[0] || null;
   const selectedStatementTenant = derivedTenants.find((tenant) => tenant.id === statementTenantId) || derivedTenants[0] || null;
   const selectedLetterTenant = derivedTenants.find((tenant) => tenant.id === letterTenantId) || derivedTenants.find((tenant) => tenant.alert) || null;
 
   function hydrateFallbackState(message) {
     const fallback = buildDerivedState(seedState);
     setState(fallback);
+    setSelectedTenantId(fallback.derivedTenants?.[0]?.id || "");
     setStatementTenantId(fallback.derivedTenants?.[0]?.id || "");
     const alertTenantId = fallback.derivedTenants?.find((tenant) => tenant.alert)?.id || "";
     setLetterTenantId(alertTenantId);
@@ -277,6 +351,7 @@ export default function HomePage() {
         }
         const nextState = await stateResponse.json();
         setState(nextState);
+        setSelectedTenantId(nextState.derivedTenants?.[0]?.id || "");
         setStatementTenantId(nextState.derivedTenants?.[0]?.id || "");
         const alertTenantId = nextState.derivedTenants?.find((tenant) => tenant.alert)?.id || "";
         setLetterTenantId(alertTenantId);
@@ -415,6 +490,7 @@ export default function HomePage() {
     };
     const saved = await persist(nextState);
     setTenantForm(blankTenant);
+    setSelectedTenantId(saved.derivedTenants?.slice(-1)[0]?.id || "");
     setStatementTenantId(saved.derivedTenants?.slice(-1)[0]?.id || "");
   }
 
@@ -475,6 +551,58 @@ export default function HomePage() {
       setBusy(false);
       event.target.value = "";
     }
+  }
+
+  function exportTenantList() {
+    const rows = [
+      [
+        "Tenant Name",
+        "Unit Number",
+        "Parking Spot",
+        "Phone",
+        "Email",
+        "Monthly Rent",
+        "Deposit",
+        "Lease Start",
+        "Lease End",
+        "Outstanding Balance",
+        "Status",
+      ],
+      ...derivedTenants.map((tenant) => [
+        tenant.fullName,
+        tenant.unit?.unitNumber || "",
+        tenant.unit?.parkingSpot || "",
+        tenant.phone || "",
+        tenant.email || "",
+        tenant.monthlyRent || 0,
+        tenant.depositAmount || 0,
+        tenant.leaseStart || "",
+        tenant.leaseEnd || "",
+        tenant.outstandingBalance || 0,
+        tenant.status || "",
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laurel-woods-tenants-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printAllStatements() {
+    if (!state || !derivedTenants.length) return;
+    openPrintWindow(allStatementsHtml(state.property, derivedTenants));
   }
 
   if (loading) {
@@ -551,6 +679,12 @@ export default function HomePage() {
             <p>Standalone property management app for Laurel Woods.</p>
           </div>
           <div className="button-row">
+            <button className="action secondary" onClick={exportTenantList}>
+              Export Tenant List
+            </button>
+            <button className="action secondary" onClick={printAllStatements}>
+              Print All Statements
+            </button>
             <button className="action secondary" onClick={generateCurrentMonthCharges} disabled={busy}>
               Generate Current Month Charges
             </button>
@@ -701,11 +835,28 @@ export default function HomePage() {
             <section className="panel stack">
               <div>
                 <h3 className="section-title">Current Tenants</h3>
-                <p className="section-subtitle">Lease and balance overview.</p>
+                <p className="section-subtitle">Search, click, and review a tenant record instantly.</p>
+              </div>
+              <div className="field">
+                <label>Search tenant or unit</label>
+                <input
+                  value={tenantSearch}
+                  onChange={(event) => setTenantSearch(event.target.value)}
+                  placeholder="Search by name, unit, parking, phone, or email"
+                />
               </div>
               <div className="list">
-                {derivedTenants.map((tenant) => (
-                  <div key={tenant.id} className={`list-item ${tenant.alert ? "alert" : ""}`}>
+                {filteredTenants.map((tenant) => (
+                  <button
+                    key={tenant.id}
+                    className={`list-item ${tenant.alert ? "alert" : ""}`}
+                    style={{
+                      textAlign: "left",
+                      cursor: "pointer",
+                      background: selectedTenant?.id === tenant.id ? "var(--panel-strong)" : undefined,
+                    }}
+                    onClick={() => setSelectedTenantId(tenant.id)}
+                  >
                     <h3>{tenant.fullName}</h3>
                     <div className="meta">
                       Unit {tenant.unit?.unitNumber || "—"} · Parking {tenant.unit?.parkingSpot || "—"}<br />
@@ -713,11 +864,99 @@ export default function HomePage() {
                       Rent {money(tenant.monthlyRent)} · Deposit {money(tenant.depositAmount)}<br />
                       Balance {money(tenant.outstandingBalance)}
                     </div>
-                  </div>
+                  </button>
                 ))}
+                {!filteredTenants.length ? <div className="empty">No tenant matched your search.</div> : null}
               </div>
             </section>
           </div>
+        ) : null}
+
+        {activeTab === "tenants" ? (
+          selectedTenant ? (
+            <section className="panel stack" style={{ marginTop: 20 }}>
+              <div>
+                <h3 className="section-title">Tenant Record</h3>
+                <p className="section-subtitle">Quick access to balance, payment history, and ledger details.</p>
+              </div>
+              <div className="two-column">
+                <div className="list-item">
+                  <h3>{selectedTenant.fullName}</h3>
+                  <div className="meta">
+                    Unit {selectedTenant.unit?.unitNumber || "—"} · Parking {selectedTenant.unit?.parkingSpot || "—"}<br />
+                    Phone: {selectedTenant.phone || "—"}<br />
+                    Email: {selectedTenant.email || "—"}<br />
+                    Lease: {longDate(selectedTenant.leaseStart)} to {longDate(selectedTenant.leaseEnd)}<br />
+                    Monthly Rent: <strong>{money(selectedTenant.monthlyRent)}</strong><br />
+                    Deposit: <strong>{money(selectedTenant.depositAmount)}</strong><br />
+                    Current Balance: <strong>{money(selectedTenant.outstandingBalance)}</strong>
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <span className={`pill ${selectedTenant.outstandingBalance > 0 ? "warn" : ""}`}>
+                      {selectedTenant.outstandingBalance > 0 ? "Balance Due" : "Current"}
+                    </span>
+                    {selectedTenant.alert ? <span className="pill danger">3-Month Warning</span> : null}
+                  </div>
+                </div>
+                <div className="list-item">
+                  <h3>Recent Payments</h3>
+                  {selectedTenant.payments.length ? (
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Method</th>
+                          <th>Reference</th>
+                          <th>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedTenant.payments.map((payment) => (
+                          <tr key={payment.id}>
+                            <td>{longDate(payment.paymentDate)}</td>
+                            <td>{payment.method}</td>
+                            <td>{payment.reference || "—"}</td>
+                            <td>{money(payment.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="empty">No payments recorded for this tenant yet.</div>
+                  )}
+                </div>
+              </div>
+              <div className="list-item">
+                <h3>Ledger Details</h3>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Charge</th>
+                      <th>Applied</th>
+                      <th>Remaining</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedTenant.charges.map((charge) => (
+                      <tr key={charge.id}>
+                        <td>{monthLabel(charge.chargeMonth)}</td>
+                        <td>{money(charge.totalCharge)}</td>
+                        <td>{money(charge.appliedAmount)}</td>
+                        <td>{money(charge.remainingBalance)}</td>
+                        <td>{charge.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : (
+            <section className="panel stack" style={{ marginTop: 20 }}>
+              <div className="empty">Select a tenant to view the full record.</div>
+            </section>
+          )
         ) : null}
 
         {activeTab === "units" ? (
@@ -946,6 +1185,9 @@ export default function HomePage() {
                   onClick={() => selectedStatementTenant && openPrintWindow(statementHtml(state.property, selectedStatementTenant))}
                 >
                   Print Ledger Statement
+                </button>
+                <button className="action secondary" onClick={printAllStatements}>
+                  Print All Renter Statements
                 </button>
                 <button
                   className="action secondary"
