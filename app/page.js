@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { buildDerivedState } from "../lib/ledger";
+import { seedState } from "../lib/seed";
 
 const tabs = [
   { key: "dashboard", label: "Dashboard" },
@@ -235,18 +237,40 @@ export default function HomePage() {
   const selectedStatementTenant = derivedTenants.find((tenant) => tenant.id === statementTenantId) || derivedTenants[0] || null;
   const selectedLetterTenant = derivedTenants.find((tenant) => tenant.id === letterTenantId) || derivedTenants.find((tenant) => tenant.alert) || null;
 
+  function hydrateFallbackState(message) {
+    const fallback = buildDerivedState(seedState);
+    setState(fallback);
+    setStatementTenantId(fallback.derivedTenants?.[0]?.id || "");
+    const alertTenantId = fallback.derivedTenants?.find((tenant) => tenant.alert)?.id || "";
+    setLetterTenantId(alertTenantId);
+    setLetterBody(
+      alertTenantId
+        ? `${fallback.settings.warningTemplate}\n\nPlease contact the management office immediately to resolve your account.`
+        : fallback.settings.warningTemplate
+    );
+    setError(message || "Loaded fallback starter data.");
+  }
+
   async function loadApp() {
     setLoading(true);
     setError("");
+    let sessionAuthenticated = false;
     try {
       const sessionResponse = await fetch("/api/session", { cache: "no-store" });
       if (!sessionResponse.ok) {
         throw new Error("Unable to verify session");
       }
       const session = await sessionResponse.json();
-      setAuthenticated(Boolean(session.authenticated));
-      if (session.authenticated) {
-        const stateResponse = await fetch("/api/state", { cache: "no-store" });
+      sessionAuthenticated = Boolean(session.authenticated);
+      setAuthenticated(sessionAuthenticated);
+      if (sessionAuthenticated) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const stateResponse = await fetch("/api/state", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
         if (!stateResponse.ok) {
           const failedState = await stateResponse.json().catch(() => null);
           throw new Error(failedState?.error || "Unable to load property data");
@@ -261,9 +285,15 @@ export default function HomePage() {
             ? `${nextState.settings.warningTemplate}\n\nPlease contact the management office immediately to resolve your account.`
             : nextState.settings.warningTemplate
         );
+      } else {
+        setState(null);
       }
     } catch (fetchError) {
-      setError(fetchError.message || "Failed to load app");
+      if (sessionAuthenticated) {
+        hydrateFallbackState("Live storage is not ready yet, so the app loaded starter data.");
+      } else {
+        setError(fetchError.message || "Failed to load app");
+      }
     } finally {
       setLoading(false);
     }
