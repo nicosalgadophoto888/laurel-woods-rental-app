@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { buildDerivedState } from "../lib/ledger";
 import { seedState } from "../lib/seed";
+import { laurelWoodsUnitMaster } from "../lib/unitMaster";
 
 const LOGO_SRC = "/laurelwoods-logo.jpg";
 
@@ -58,6 +59,29 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function normalizeUnitNumber(value) {
+  return String(value || "").trim();
+}
+
+function unitSuffix(unitNumber) {
+  const normalized = normalizeUnitNumber(unitNumber);
+  return normalized.includes("-") ? normalized.split("-").pop() : normalized;
+}
+
+function unitSort(a, b) {
+  return normalizeUnitNumber(a.unitNumber).localeCompare(normalizeUnitNumber(b.unitNumber), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function unitIdFromNumber(unitNumber) {
+  return `unit-${normalizeUnitNumber(unitNumber)
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-|-$/g, "")}`;
 }
 
 function statementHtml(property, tenant) {
@@ -494,6 +518,59 @@ export default function HomePage() {
     if (!state) return;
     const nextState = await persist(state, { generateCurrentMonth: true });
     setState(nextState);
+  }
+
+  async function importUnitMaster() {
+    if (!state) return;
+
+    const nextUnits = [...state.units];
+    let added = 0;
+    let updated = 0;
+
+    for (const importedUnit of laurelWoodsUnitMaster) {
+      const importedNumber = normalizeUnitNumber(importedUnit.unitNumber);
+      const importedParking = String(importedUnit.parkingSpot || "").trim();
+      let matchIndex = nextUnits.findIndex((unit) => normalizeUnitNumber(unit.unitNumber) === importedNumber);
+
+      if (matchIndex < 0) {
+        const suffix = unitSuffix(importedNumber);
+        const suffixMatches = nextUnits
+          .map((unit, index) => ({ unit, index }))
+          .filter(({ unit }) => unitSuffix(unit.unitNumber) === suffix);
+
+        if (suffixMatches.length === 1) {
+          matchIndex = suffixMatches[0].index;
+        }
+      }
+
+      if (matchIndex >= 0) {
+        const existingUnit = nextUnits[matchIndex];
+        nextUnits[matchIndex] = {
+          ...existingUnit,
+          unitNumber: importedNumber,
+          parkingSpot: importedParking,
+        };
+        updated += 1;
+      } else {
+        nextUnits.push({
+          id: unitIdFromNumber(importedNumber),
+          propertyId: state.property.id,
+          unitNumber: importedNumber,
+          parkingSpot: importedParking,
+          status: "Vacant",
+          defaultMonthlyRent: 0,
+        });
+        added += 1;
+      }
+    }
+
+    const saved = await persist({
+      ...state,
+      units: nextUnits.sort(unitSort),
+    });
+
+    window.alert(`Imported ${laurelWoodsUnitMaster.length} units. Updated ${updated} existing units and added ${added} new ones.`);
+    setState(saved);
   }
 
   async function addUnit() {
@@ -1539,6 +1616,11 @@ export default function HomePage() {
               <div>
                 <h3 className="section-title">Add Unit</h3>
                 <p className="section-subtitle">Track unit number, parking, occupancy, and default rent.</p>
+              </div>
+              <div className="button-row" style={{ justifyContent: "start" }}>
+                <button className="action secondary" onClick={importUnitMaster} disabled={busy}>
+                  Import Apartment + Townhome Units
+                </button>
               </div>
               <div className="form-grid">
                 <div className="field">
