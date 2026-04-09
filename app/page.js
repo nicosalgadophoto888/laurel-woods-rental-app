@@ -311,6 +311,16 @@ export default function HomePage() {
   const selectedStatementTenant = derivedTenants.find((tenant) => tenant.id === statementTenantId) || derivedTenants[0] || null;
   const selectedLetterTenant = derivedTenants.find((tenant) => tenant.id === letterTenantId) || derivedTenants.find((tenant) => tenant.alert) || null;
 
+  async function safeJson(response) {
+    const text = await response.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { error: text };
+    }
+  }
+
   function hydrateFallbackState(message) {
     const fallback = buildDerivedState(seedState);
     setState(fallback);
@@ -400,7 +410,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
-      const payload = await response.json();
+      const payload = await safeJson(response);
       if (!response.ok) throw new Error(payload.error || "Login failed");
       setPassword("");
       await loadApp();
@@ -426,7 +436,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...nextState, ...options }),
       });
-      const payload = await response.json();
+      const payload = await safeJson(response);
       if (!response.ok) throw new Error(payload.error || "Save failed");
       setState(payload);
       return payload;
