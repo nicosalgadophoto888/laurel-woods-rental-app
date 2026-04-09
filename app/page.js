@@ -182,7 +182,8 @@ function warningLetterHtml(property, tenant, body) {
       <p>${escapeHtml(longDate(new Date().toISOString()))}</p>
       <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />Parking ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
       <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
-      <p>Unpaid Months: ${escapeHtml((tenant.alert?.unpaidMonths || []).map(monthLabel).join(", "))}</p>
+      <p>Warning Reason: ${escapeHtml((tenant.alert?.reasons || []).join("; ") || "Past due balance")}</p>
+      <p>Unpaid Months: ${escapeHtml((tenant.alert?.unpaidMonths || []).map(monthLabel).join(", ") || "—")}</p>
       <p>Total Past Due: <strong>${escapeHtml(money(tenant.alert?.amountDue || 0))}</strong></p>
       <p>Sincerely,<br />Laurel Woods Management</p>
     </body>
@@ -619,6 +620,7 @@ export default function HomePage() {
         "Total Payments Recorded",
         "Open Charge Months",
         "3 Month Warning",
+        "Warning Reason",
         "Warning Months",
       ],
       ...derivedTenants.map((tenant) => {
@@ -648,6 +650,7 @@ export default function HomePage() {
           tenant.payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
           unpaidMonths,
           tenant.alert ? "Yes" : "No",
+          (tenant.alert?.reasons || []).join(" | "),
           (tenant.alert?.unpaidMonths || []).map(monthLabel).join(" | "),
         ];
       }),
@@ -808,7 +811,7 @@ export default function HomePage() {
                         <span className={`pill ${tenant.outstandingBalance > 0 ? "warn" : ""}`}>
                           {tenant.outstandingBalance > 0 ? "Balance Due" : "Current"}
                         </span>
-                        {tenant.alert ? <span className="pill danger">3-Month Warning</span> : null}
+                        {tenant.alert ? <span className="pill danger">Red Flag</span> : null}
                       </div>
                     </div>
                   ))}
@@ -818,7 +821,7 @@ export default function HomePage() {
               <section className="panel stack">
                 <div>
                   <h3 className="section-title">Arrears Warnings</h3>
-                  <p className="section-subtitle">Tenants with three consecutive unpaid months.</p>
+                  <p className="section-subtitle">Flags tenants with 3 unpaid months in a row or arrears equal to 3 months of rent.</p>
                 </div>
                 {state?.alerts?.length ? (
                   <div className="list">
@@ -828,7 +831,8 @@ export default function HomePage() {
                         <div key={tenant.id} className="list-item alert">
                           <h4>{tenant.fullName}</h4>
                           <div className="meta">
-                            Unpaid Months: {(tenant.alert.unpaidMonths || []).map(monthLabel).join(", ")}<br />
+                            Warning Reason: {(tenant.alert.reasons || []).join("; ")}<br />
+                            Unpaid Months: {(tenant.alert.unpaidMonths || []).map(monthLabel).join(", ") || "—"}<br />
                             Amount Due: <strong>{money(tenant.alert.amountDue)}</strong>
                           </div>
                           <button
@@ -968,7 +972,7 @@ export default function HomePage() {
                     <span className={`pill ${selectedTenant.outstandingBalance > 0 ? "warn" : ""}`}>
                       {selectedTenant.outstandingBalance > 0 ? "Balance Due" : "Current"}
                     </span>
-                    {selectedTenant.alert ? <span className="pill danger">3-Month Warning</span> : null}
+                    {selectedTenant.alert ? <span className="pill danger">Red Flag</span> : null}
                   </div>
                 </div>
                 <div className="list-item">
@@ -1297,7 +1301,7 @@ export default function HomePage() {
             <section className="panel stack">
               <div>
                 <h3 className="section-title">Arrears Alerts</h3>
-                <p className="section-subtitle">3 consecutive unpaid months create a warning state.</p>
+                <p className="section-subtitle">Red flags show 3 consecutive unpaid months or total arrears equal to 3 months of rent.</p>
               </div>
               <div className="list">
                 {derivedTenants.filter((tenant) => tenant.alert).length ? (
@@ -1313,7 +1317,8 @@ export default function HomePage() {
                         <h3>{tenant.fullName}</h3>
                         <div className="meta">
                           Unit {tenant.unit?.unitNumber || "—"} · Parking {tenant.unit?.parkingSpot || "—"}<br />
-                          Unpaid Months: {(tenant.alert.unpaidMonths || []).map(monthLabel).join(", ")}<br />
+                          Warning Reason: {(tenant.alert.reasons || []).join("; ")}<br />
+                          Unpaid Months: {(tenant.alert.unpaidMonths || []).map(monthLabel).join(", ") || "—"}<br />
                           Amount Due: <strong>{money(tenant.alert.amountDue)}</strong>
                         </div>
                       </button>
@@ -1335,7 +1340,8 @@ export default function HomePage() {
                     <h3>{selectedLetterTenant.fullName}</h3>
                     <div className="meta">
                       Unit {selectedLetterTenant.unit?.unitNumber || "—"} · Parking {selectedLetterTenant.unit?.parkingSpot || "—"}<br />
-                      Unpaid Months: {(selectedLetterTenant.alert.unpaidMonths || []).map(monthLabel).join(", ")}<br />
+                      Warning Reason: {(selectedLetterTenant.alert.reasons || []).join("; ")}<br />
+                      Unpaid Months: {(selectedLetterTenant.alert.unpaidMonths || []).map(monthLabel).join(", ") || "—"}<br />
                       Past Due: <strong>{money(selectedLetterTenant.alert.amountDue)}</strong>
                     </div>
                   </div>
