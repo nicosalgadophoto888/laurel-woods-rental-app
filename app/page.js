@@ -475,7 +475,15 @@ export default function HomePage() {
   }
 
   async function addTenant() {
-    if (!state || !tenantForm.fullName.trim() || !tenantForm.unitId) return;
+    if (!state) return;
+    if (!tenantForm.fullName.trim()) {
+      setError("Enter the tenant's full name before saving.");
+      return;
+    }
+    if (!tenantForm.unitId) {
+      setError("Select a unit before saving the tenant.");
+      return;
+    }
     const selectedUnit = state.units.find((unit) => unit.id === tenantForm.unitId);
     const nextState = {
       ...state,
@@ -506,7 +514,19 @@ export default function HomePage() {
   }
 
   async function addPayment() {
-    if (!state || !paymentForm.tenantId || !paymentForm.amount) return;
+    if (!state) return;
+    if (!paymentForm.tenantId) {
+      setError("Select a tenant before saving the payment.");
+      return;
+    }
+    if (!paymentForm.paymentDate) {
+      setError("Enter the payment date before saving.");
+      return;
+    }
+    if (!paymentForm.amount || Number(paymentForm.amount) <= 0) {
+      setError("Enter a payment amount greater than 0 before saving.");
+      return;
+    }
     const nextState = {
       ...state,
       payments: [
