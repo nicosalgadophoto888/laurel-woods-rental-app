@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { buildDerivedState } from "../lib/ledger";
 import { seedState } from "../lib/seed";
 
+const LOGO_SRC = "/laurelwoods-logo.jpg";
+
 const tabs = [
   { key: "dashboard", label: "Dashboard" },
   { key: "tenants", label: "Tenants" },
@@ -99,10 +101,17 @@ function statementHtml(property, tenant) {
         th,td { border-bottom:1px solid #d9cdb9; text-align:left; padding:10px 8px; font-size:14px; }
         .meta { color:#6f6557; font-size:14px; line-height:1.7; }
         .total { margin-top:18px; text-align:right; font-size:16px; font-weight:700; }
+        .letterhead { display:flex; align-items:center; gap:18px; margin-bottom:18px; }
+        .letterhead img { width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9; }
       </style>
     </head>
     <body>
-      <h1>${escapeHtml(property.name)} Ledger Statement</h1>
+      <div class="letterhead">
+        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
+        <div>
+          <h1>${escapeHtml(property.name)} Ledger Statement</h1>
+        </div>
+      </div>
       <div class="meta">
         Tenant: ${escapeHtml(tenant.fullName)}<br />
         Unit: ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />
@@ -150,10 +159,17 @@ function rentNoticeHtml(property, tenant) {
       <style>
         body { font-family: Georgia, serif; color:#2e2418; padding:40px; line-height:1.7; }
         .box { border:1px solid #d9cdb9; border-radius:12px; padding:24px; }
+        .letterhead { display:flex; align-items:center; gap:18px; margin-bottom:20px; }
+        .letterhead img { width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9; }
       </style>
     </head>
     <body>
-      <h1>${escapeHtml(property.name)} Rent Notice</h1>
+      <div class="letterhead">
+        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
+        <div>
+          <h1>${escapeHtml(property.name)} Rent Notice</h1>
+        </div>
+      </div>
       <div class="box">
         <p>Tenant: <strong>${escapeHtml(tenant.fullName)}</strong></p>
         <p>Unit: <strong>${escapeHtml(tenant.unit?.unitNumber || "—")}</strong></p>
@@ -175,10 +191,17 @@ function warningLetterHtml(property, tenant, body) {
       <title>Warning Letter</title>
       <style>
         body { font-family: Georgia, serif; color:#2e2418; padding:40px; line-height:1.8; }
+        .letterhead { display:flex; align-items:center; gap:18px; margin-bottom:20px; }
+        .letterhead img { width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9; }
       </style>
     </head>
     <body>
-      <h1>${escapeHtml(property.name)}</h1>
+      <div class="letterhead">
+        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
+        <div>
+          <h1>${escapeHtml(property.name)}</h1>
+        </div>
+      </div>
       <p>${escapeHtml(longDate(new Date().toISOString()))}</p>
       <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />Parking ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
       <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
@@ -195,7 +218,10 @@ function allStatementsHtml(property, tenants) {
     .map(
       (tenant) => `
         <section style="page-break-after: always; margin-bottom: 40px;">
-          <h1 style="margin: 0 0 12px;">${escapeHtml(property.name)} Ledger Statement</h1>
+          <div style="display:flex; align-items:center; gap:18px; margin-bottom: 12px;">
+            <img src="${LOGO_SRC}" alt="Laurel Woods logo" style="width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9;" />
+            <h1 style="margin: 0;">${escapeHtml(property.name)} Ledger Statement</h1>
+          </div>
           <div style="color:#6f6557; font-size:14px; line-height:1.7; margin-bottom: 14px;">
             Tenant: ${escapeHtml(tenant.fullName)}<br />
             Unit: ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />
@@ -922,13 +948,21 @@ export default function HomePage() {
   }
 
   if (loading) {
-    return <div className="login-shell"><div className="login-card">Loading Laurel Woods Rental App...</div></div>;
+    return (
+      <div className="login-shell">
+        <div className="login-card">
+          <img className="login-logo" src={LOGO_SRC} alt="Laurel Woods logo" />
+          Loading Laurel Woods Rental App...
+        </div>
+      </div>
+    );
   }
 
   if (!authenticated) {
     return (
       <div className="login-shell">
         <div className="login-card">
+          <img className="login-logo" src={LOGO_SRC} alt="Laurel Woods logo" />
           <h1 style={{ marginTop: 0 }}>Laurel Woods Rental App</h1>
           <p className="fine-print">
             Admin-only access for tenant records, rent statements, payments, lease files, and arrears letters.
@@ -961,6 +995,7 @@ export default function HomePage() {
     return (
       <div className="login-shell">
         <div className="login-card">
+          <img className="login-logo" src={LOGO_SRC} alt="Laurel Woods logo" />
           <h1 style={{ marginTop: 0 }}>Laurel Woods Rental App</h1>
           <p className="fine-print">{error || "Loading your property dashboard..."}</p>
         </div>
@@ -972,7 +1007,10 @@ export default function HomePage() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <h1>Laurel Woods</h1>
+          <div className="brand-mark">
+            <img className="brand-logo" src={LOGO_SRC} alt="Laurel Woods logo" />
+            <h1>Laurel Woods</h1>
+          </div>
           <p>Rental operations dashboard for units, payments, statements, and arrears management.</p>
         </div>
         <div className="nav-list">
