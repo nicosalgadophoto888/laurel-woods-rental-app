@@ -476,6 +476,17 @@ export default function HomePage() {
     );
   }
 
+  if (!state) {
+    return (
+      <div className="login-shell">
+        <div className="login-card">
+          <h1 style={{ marginTop: 0 }}>Laurel Woods Rental App</h1>
+          <p className="fine-print">Loading your property dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -565,7 +576,7 @@ export default function HomePage() {
                   <h3 className="section-title">Arrears Warnings</h3>
                   <p className="section-subtitle">Tenants with three consecutive unpaid months.</p>
                 </div>
-                {state.alerts.length ? (
+                {state?.alerts?.length ? (
                   <div className="list">
                     {derivedTenants
                       .filter((tenant) => tenant.alert)
