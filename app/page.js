@@ -240,10 +240,17 @@ export default function HomePage() {
     setError("");
     try {
       const sessionResponse = await fetch("/api/session", { cache: "no-store" });
+      if (!sessionResponse.ok) {
+        throw new Error("Unable to verify session");
+      }
       const session = await sessionResponse.json();
       setAuthenticated(Boolean(session.authenticated));
       if (session.authenticated) {
         const stateResponse = await fetch("/api/state", { cache: "no-store" });
+        if (!stateResponse.ok) {
+          const failedState = await stateResponse.json().catch(() => null);
+          throw new Error(failedState?.error || "Unable to load property data");
+        }
         const nextState = await stateResponse.json();
         setState(nextState);
         setStatementTenantId(nextState.derivedTenants?.[0]?.id || "");
@@ -481,7 +488,7 @@ export default function HomePage() {
       <div className="login-shell">
         <div className="login-card">
           <h1 style={{ marginTop: 0 }}>Laurel Woods Rental App</h1>
-          <p className="fine-print">Loading your property dashboard...</p>
+          <p className="fine-print">{error || "Loading your property dashboard..."}</p>
         </div>
       </div>
     );
