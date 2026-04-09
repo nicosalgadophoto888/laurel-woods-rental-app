@@ -600,6 +600,76 @@ export default function HomePage() {
     URL.revokeObjectURL(url);
   }
 
+  function exportExecutiveReport() {
+    const rows = [
+      [
+        "Tenant Name",
+        "Unit Number",
+        "Parking Spot",
+        "Phone",
+        "Email",
+        "Lease Start",
+        "Lease End",
+        "Status",
+        "Monthly Rent",
+        "Deposit",
+        "Outstanding Balance",
+        "Last Payment Date",
+        "Last Payment Amount",
+        "Total Payments Recorded",
+        "Open Charge Months",
+        "3 Month Warning",
+        "Warning Months",
+      ],
+      ...derivedTenants.map((tenant) => {
+        const payments = [...tenant.payments].sort((a, b) =>
+          String(b.paymentDate || "").localeCompare(String(a.paymentDate || ""))
+        );
+        const lastPayment = payments[0] || null;
+        const unpaidMonths = tenant.charges
+          .filter((charge) => Number(charge.remainingBalance || 0) > 0)
+          .map((charge) => monthLabel(charge.chargeMonth))
+          .join(" | ");
+
+        return [
+          tenant.fullName,
+          tenant.unit?.unitNumber || "",
+          tenant.unit?.parkingSpot || "",
+          tenant.phone || "",
+          tenant.email || "",
+          tenant.leaseStart || "",
+          tenant.leaseEnd || "",
+          tenant.status || "",
+          tenant.monthlyRent || 0,
+          tenant.depositAmount || 0,
+          tenant.outstandingBalance || 0,
+          lastPayment?.paymentDate || "",
+          lastPayment?.amount || 0,
+          tenant.payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+          unpaidMonths,
+          tenant.alert ? "Yes" : "No",
+          (tenant.alert?.unpaidMonths || []).map(monthLabel).join(" | "),
+        ];
+      }),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laurel-woods-executive-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function printAllStatements() {
     if (!state || !derivedTenants.length) return;
     openPrintWindow(allStatementsHtml(state.property, derivedTenants));
@@ -679,6 +749,9 @@ export default function HomePage() {
             <p>Standalone property management app for Laurel Woods.</p>
           </div>
           <div className="button-row">
+            <button className="action secondary" onClick={exportExecutiveReport}>
+              Export Executive Report
+            </button>
             <button className="action secondary" onClick={exportTenantList}>
               Export Tenant List
             </button>
