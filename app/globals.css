@@ -154,6 +154,13 @@ a {
   gap: 16px;
 }
 
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
 .button-row {
   grid-auto-flow: column;
   grid-auto-columns: max-content;
@@ -195,6 +202,9 @@ a {
 .list {
   display: grid;
   gap: 12px;
+  max-height: 70vh;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .list-item {
@@ -366,5 +376,10 @@ a {
   .button-row {
     grid-auto-flow: row;
     justify-content: stretch;
+  }
+
+  .list {
+    max-height: none;
+    overflow: visible;
   }
 }

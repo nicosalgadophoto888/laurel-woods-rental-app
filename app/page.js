@@ -344,6 +344,7 @@ export default function HomePage() {
   const [password, setPassword] = useState("");
   const [state, setState] = useState(null);
   const [unitForm, setUnitForm] = useState(blankUnit);
+  const [unitSearch, setUnitSearch] = useState("");
   const [tenantForm, setTenantForm] = useState(blankTenant);
   const [paymentForm, setPaymentForm] = useState(blankPayment);
   const [chargeForm, setChargeForm] = useState(blankCharge);
@@ -369,6 +370,13 @@ export default function HomePage() {
       tenant.unit?.unitNumber,
       tenant.unit?.parkingSpot,
     ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(search));
+  });
+  const filteredUnits = (state?.units || []).filter((unit) => {
+    const search = unitSearch.trim().toLowerCase();
+    if (!search) return true;
+    return [unit.unitNumber, unit.parkingSpot, unit.status]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(search));
   });
@@ -1617,10 +1625,13 @@ export default function HomePage() {
                 <h3 className="section-title">Add Unit</h3>
                 <p className="section-subtitle">Track unit number, parking, occupancy, and default rent.</p>
               </div>
-              <div className="button-row" style={{ justifyContent: "start" }}>
+              <div className="inline-actions">
                 <button className="action secondary" onClick={importUnitMaster} disabled={busy}>
                   Import Apartment + Townhome Units
                 </button>
+                <div className="fine-print">
+                  Imports the apartment list from your spreadsheet and keeps existing occupied units intact.
+                </div>
               </div>
               <div className="form-grid">
                 <div className="field">
@@ -1659,10 +1670,18 @@ export default function HomePage() {
             <section className="panel stack">
               <div>
                 <h3 className="section-title">Unit Inventory</h3>
-                <p className="section-subtitle">Availability and assigned parking.</p>
+                <p className="section-subtitle">Availability and assigned parking. Showing {filteredUnits.length} of {state.units.length} units.</p>
+              </div>
+              <div className="field">
+                <label>Search unit or car park</label>
+                <input
+                  value={unitSearch}
+                  onChange={(event) => setUnitSearch(event.target.value)}
+                  placeholder="Search by unit number, car park, or status"
+                />
               </div>
               <div className="list">
-                {state.units.map((unit) => (
+                {filteredUnits.map((unit) => (
                   <div key={unit.id} className="list-item">
                     <h3>Unit {unit.unitNumber}</h3>
                     <div className="meta">
@@ -1680,6 +1699,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 ))}
+                {!filteredUnits.length ? <div className="empty">No units matched that search.</div> : null}
               </div>
             </section>
           </div>
