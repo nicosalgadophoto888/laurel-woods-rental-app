@@ -1239,7 +1239,6 @@ export default function HomePage() {
             <img className="brand-logo" src={LOGO_SRC} alt="Laurel Woods logo" />
             <h1>Laurel Woods</h1>
           </div>
-          <p>Rental operations dashboard for units, payments, statements, and arrears management.</p>
         </div>
         <div className="nav-list">
           {tabs.map((tab) => (

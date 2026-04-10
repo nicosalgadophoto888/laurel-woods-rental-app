@@ -44,33 +44,33 @@ a {
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 232px 1fr;
 }
 
 .sidebar {
   border-right: 1px solid rgba(185, 156, 107, 0.35);
-  padding: 28px 20px;
+  padding: 22px 16px;
   background: rgba(252, 250, 245, 0.92);
   backdrop-filter: blur(10px);
 }
 
 .brand {
-  padding: 18px;
-  border-radius: 18px;
+  padding: 16px 14px;
+  border-radius: 16px;
   background: linear-gradient(135deg, rgba(108, 138, 83, 0.12), rgba(216, 140, 38, 0.08));
   border: 1px solid rgba(185, 156, 107, 0.35);
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .brand-mark {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .brand-logo {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   object-fit: cover;
   border-radius: 50%;
   border: 1px solid rgba(185, 156, 107, 0.45);
@@ -80,19 +80,13 @@ a {
 
 .brand h1 {
   margin: 0;
-  font-size: 28px;
-}
-
-.brand p {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 24px;
+  line-height: 0.95;
 }
 
 .nav-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .nav-button {
@@ -101,9 +95,10 @@ a {
   background: transparent;
   color: var(--text);
   text-align: left;
-  padding: 12px 14px;
-  border-radius: 14px;
+  padding: 11px 13px;
+  border-radius: 13px;
   cursor: pointer;
+  font-size: 15px;
 }
 
 .nav-button.active {
