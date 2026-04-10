@@ -352,6 +352,7 @@ const blankTenant = {
   fullName: "",
   phone: "",
   email: "",
+  memo: "",
   unitId: "",
   monthlyRent: "",
   depositAmount: "",
@@ -398,6 +399,8 @@ export default function HomePage() {
   const [tenantSearch, setTenantSearch] = useState("");
   const [tenantStatusFilter, setTenantStatusFilter] = useState("Active");
   const [selectedTenantId, setSelectedTenantId] = useState("");
+  const [memoDraft, setMemoDraft] = useState("");
+  const [editingMemoTenantId, setEditingMemoTenantId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const derivedTenants = state?.derivedTenants || [];
@@ -541,6 +544,16 @@ export default function HomePage() {
     if (!state || !selectedLetterTenant) return;
     setLetterBody(reminderBodyForTenant(selectedLetterTenant, state.settings));
   }, [state?.settings?.warningTemplate, selectedLetterTenant?.id]);
+
+  useEffect(() => {
+    if (!selectedTenant) {
+      setEditingMemoTenantId("");
+      setMemoDraft("");
+      return;
+    }
+    setMemoDraft(selectedTenant.memo || "");
+    setEditingMemoTenantId("");
+  }, [selectedTenant?.id, selectedTenant?.memo]);
 
   const summary = useMemo(
     () => state?.dashboard || { occupiedUnits: 0, vacantUnits: 0, totalOutstanding: 0, tenantsWithBalance: 0, arrearsCount: 0 },
@@ -743,6 +756,7 @@ export default function HomePage() {
                   fullName: tenantForm.fullName.trim(),
                   phone: tenantForm.phone.trim(),
                   email: tenantForm.email.trim(),
+                  memo: tenantForm.memo.trim(),
                   unitId: tenantForm.unitId,
                   monthlyRent: Number(tenantForm.monthlyRent || selectedUnit?.defaultMonthlyRent || 0),
                   depositAmount: Number(tenantForm.depositAmount || 0),
@@ -760,6 +774,7 @@ export default function HomePage() {
               fullName: tenantForm.fullName.trim(),
               phone: tenantForm.phone.trim(),
               email: tenantForm.email.trim(),
+              memo: tenantForm.memo.trim(),
               unitId: tenantForm.unitId,
               monthlyRent: Number(tenantForm.monthlyRent || selectedUnit?.defaultMonthlyRent || 0),
               depositAmount: Number(tenantForm.depositAmount || 0),
@@ -914,6 +929,7 @@ export default function HomePage() {
       fullName: tenant.fullName || "",
       phone: tenant.phone || "",
       email: tenant.email || "",
+      memo: tenant.memo || "",
       unitId: tenant.unitId || "",
       monthlyRent: String(tenant.monthlyRent || ""),
       depositAmount: String(tenant.depositAmount || ""),
@@ -1030,6 +1046,23 @@ export default function HomePage() {
       ...state,
       tenantDocuments: state.tenantDocuments.filter((item) => item.id !== document.id),
     });
+  }
+
+  async function saveTenantMemo() {
+    if (!state || !selectedTenant) return;
+    const nextState = {
+      ...state,
+      tenants: state.tenants.map((tenant) =>
+        tenant.id === selectedTenant.id
+          ? {
+              ...tenant,
+              memo: memoDraft.trim(),
+            }
+          : tenant
+      ),
+    };
+    await persist(nextState);
+    setEditingMemoTenantId("");
   }
 
   function exportTenantList() {
@@ -1184,6 +1217,60 @@ export default function HomePage() {
     URL.revokeObjectURL(url);
   }
 
+  function exportRedAlertReport() {
+    const redAlertTenants = derivedTenants.filter((tenant) => tenant.alert);
+    const rows = [
+      [
+        "Tenant Name",
+        "Unit Number",
+        "Parking Spot",
+        "Phone",
+        "Email",
+        "Monthly Rent",
+        "Outstanding Balance",
+        "Warning Reason",
+        "Unpaid Months",
+        "Streak Amount Due",
+        "Total Past Due",
+        "Lease Start",
+        "Lease End",
+        "Status",
+      ],
+      ...redAlertTenants.map((tenant) => [
+        tenant.fullName,
+        tenant.unit?.unitNumber || "",
+        tenant.unit?.parkingSpot || "",
+        tenant.phone || "",
+        tenant.email || "",
+        tenant.monthlyRent || 0,
+        tenant.outstandingBalance || 0,
+        (tenant.alert?.reasons || []).join(" | "),
+        (tenant.alert?.unpaidMonths || []).map(monthLabel).join(" | "),
+        tenant.alert?.streakAmountDue || 0,
+        tenant.alert?.amountDue || 0,
+        tenant.leaseStart || "",
+        tenant.leaseEnd || "",
+        tenant.status || "",
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laurel-woods-red-alert-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function exportBackup() {
     if (!state) return;
     const backup = {
@@ -1270,9 +1357,12 @@ export default function HomePage() {
     setChargeForm((current) => ({
       ...current,
       tenantId: selectedTenant.id,
-      rentAmount: current.rentAmount || String(selectedTenant.monthlyRent || ""),
+      rentAmount:
+        current.tenantId !== selectedTenant.id
+          ? String(selectedTenant.monthlyRent || "")
+          : current.rentAmount || String(selectedTenant.monthlyRent || ""),
     }));
-  }, [selectedTenant?.id, selectedTenant?.monthlyRent]);
+  }, [selectedTenant?.id, selectedTenant?.monthlyRent, chargeForm.id]);
 
   if (loading) {
     return (
@@ -1486,6 +1576,14 @@ export default function HomePage() {
                   <label>Phone</label>
                   <input value={tenantForm.phone} onChange={(event) => setTenantForm((current) => ({ ...current, phone: event.target.value }))} />
                 </div>
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  <label>Memo</label>
+                  <textarea
+                    value={tenantForm.memo}
+                    onChange={(event) => setTenantForm((current) => ({ ...current, memo: event.target.value }))}
+                    placeholder="Add tenant notes, reminders, or special instructions"
+                  />
+                </div>
                 <div className="field">
                   <label>Unit</label>
                   <select value={tenantForm.unitId} onChange={(event) => setTenantForm((current) => ({ ...current, unitId: event.target.value }))}>
@@ -1593,6 +1691,52 @@ export default function HomePage() {
                     Deposit: <strong>{money(selectedTenant.depositAmount)}</strong><br />
                     Current Balance: <strong>{money(selectedTenant.outstandingBalance)}</strong><br />
                     Credit on Account: <strong>{money(selectedTenant.creditBalance || 0)}</strong>
+                  </div>
+                  <div style={{ marginTop: 14 }}>
+                    <strong>Memo</strong>
+                    {editingMemoTenantId === selectedTenant.id ? (
+                      <>
+                        <div className="field" style={{ marginTop: 10 }}>
+                          <textarea
+                            value={memoDraft}
+                            onChange={(event) => setMemoDraft(event.target.value)}
+                            placeholder="Add tenant notes, reminders, or special instructions"
+                          />
+                        </div>
+                        <div className="button-row" style={{ justifyContent: "start" }}>
+                          <button className="action secondary" onClick={saveTenantMemo} disabled={busy}>
+                            Save Memo
+                          </button>
+                          <button
+                            className="action secondary"
+                            onClick={() => {
+                              setEditingMemoTenantId("");
+                              setMemoDraft(selectedTenant.memo || "");
+                            }}
+                            disabled={busy}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="meta" style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>
+                          {selectedTenant.memo || "No memo yet."}
+                        </div>
+                        <div className="button-row" style={{ justifyContent: "start", marginTop: 10 }}>
+                          <button
+                            className="action secondary"
+                            onClick={() => {
+                              setEditingMemoTenantId(selectedTenant.id);
+                              setMemoDraft(selectedTenant.memo || "");
+                            }}
+                          >
+                            Edit Memo
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div style={{ marginTop: 12 }}>
                     <span className={`pill ${selectedTenant.outstandingBalance > 0 ? "warn" : ""}`}>
@@ -2106,6 +2250,15 @@ export default function HomePage() {
               <div>
                 <h4 className="section-title" style={{ fontSize: "1.1rem" }}>3-Month Arrears Warnings</h4>
                 <p className="section-subtitle">Red flags show 3 consecutive unpaid months or total arrears equal to 3 months of rent.</p>
+              </div>
+              <div className="button-row" style={{ justifyContent: "start" }}>
+                <button
+                  className="action secondary"
+                  onClick={exportRedAlertReport}
+                  disabled={!derivedTenants.filter((tenant) => tenant.alert).length}
+                >
+                  Export Red Alert Report
+                </button>
               </div>
               <div className="list">
                 {derivedTenants.filter((tenant) => tenant.alert).length ? (
