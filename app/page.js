@@ -247,6 +247,39 @@ function warningLetterHtml(property, tenant, body) {
   </html>`;
 }
 
+function paymentReminderLetterHtml(property, tenant, body) {
+  const currentMonthCharge = tenant.currentMonthAlert || tenant.charges.find((charge) => Number(charge.remainingBalance || 0) > 0);
+  return `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Payment Reminder</title>
+      <style>
+        body { font-family: Georgia, serif; color:#2e2418; padding:40px; line-height:1.8; }
+        .letterhead { display:flex; align-items:center; gap:18px; margin-bottom:20px; }
+        .letterhead img { width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9; }
+      </style>
+    </head>
+    <body>
+      <div class="letterhead">
+        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
+        <div>
+          <h1>${escapeHtml(property.name)}</h1>
+          <div>Payment Reminder</div>
+        </div>
+      </div>
+      <p>${escapeHtml(longDate(new Date().toISOString()))}</p>
+      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />Parking ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
+      <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
+      <p>Charge Month: <strong>${escapeHtml(monthLabel(currentMonthCharge?.chargeMonth))}</strong></p>
+      <p>Due Date: <strong>${escapeHtml(longDate(currentMonthCharge?.dueDate))}</strong></p>
+      <p>Current Amount Due: <strong>${escapeHtml(money(currentMonthCharge?.amountDue ?? currentMonthCharge?.remainingBalance ?? 0))}</strong></p>
+      <p>Total Outstanding Balance: <strong>${escapeHtml(money(tenant.outstandingBalance || 0))}</strong></p>
+      <p>Sincerely,<br />Laurel Woods Management</p>
+    </body>
+  </html>`;
+}
+
 function allStatementsHtml(property, tenants) {
   const sections = tenants
     .map(
@@ -368,6 +401,7 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
 
   const derivedTenants = state?.derivedTenants || [];
+  const currentMonthAlertTenants = derivedTenants.filter((tenant) => tenant.currentMonthAlert);
   const tenantsByUnit = useMemo(
     () =>
       [...derivedTenants].sort((a, b) => {
@@ -408,7 +442,22 @@ export default function HomePage() {
   const selectedTenant =
     derivedTenants.find((tenant) => tenant.id === selectedTenantId) || filteredTenants[0] || derivedTenants[0] || null;
   const selectedStatementTenant = derivedTenants.find((tenant) => tenant.id === statementTenantId) || tenantsByUnit[0] || null;
-  const selectedLetterTenant = derivedTenants.find((tenant) => tenant.id === letterTenantId) || derivedTenants.find((tenant) => tenant.alert) || null;
+  const selectedLetterTenant =
+    derivedTenants.find((tenant) => tenant.id === letterTenantId) ||
+    currentMonthAlertTenants[0] ||
+    derivedTenants.find((tenant) => tenant.alert) ||
+    null;
+
+  function reminderBodyForTenant(tenant, settings) {
+    if (tenant?.currentMonthAlert) {
+      return [
+        `This is a friendly reminder that your ${monthLabel(tenant.currentMonthAlert.chargeMonth)} rent payment is still outstanding.`,
+        `Please submit ${money(tenant.currentMonthAlert.amountDue)} as soon as possible or contact management if you need assistance.`,
+      ].join("\n\n");
+    }
+
+    return `${settings.warningTemplate}\n\nPlease contact the management office immediately to resolve your account.`;
+  }
 
   async function safeJson(response) {
     const text = await response.text();
@@ -425,13 +474,13 @@ export default function HomePage() {
     setState(fallback);
     setSelectedTenantId(fallback.derivedTenants?.[0]?.id || "");
     setStatementTenantId(fallback.derivedTenants?.[0]?.id || "");
-    const alertTenantId = fallback.derivedTenants?.find((tenant) => tenant.alert)?.id || "";
+    const alertTenantId =
+      fallback.derivedTenants?.find((tenant) => tenant.currentMonthAlert)?.id ||
+      fallback.derivedTenants?.find((tenant) => tenant.alert)?.id ||
+      "";
     setLetterTenantId(alertTenantId);
-    setLetterBody(
-      alertTenantId
-        ? `${fallback.settings.warningTemplate}\n\nPlease contact the management office immediately to resolve your account.`
-        : fallback.settings.warningTemplate
-    );
+    const defaultLetterTenant = fallback.derivedTenants?.find((tenant) => tenant.id === alertTenantId) || null;
+    setLetterBody(defaultLetterTenant ? reminderBodyForTenant(defaultLetterTenant, fallback.settings) : fallback.settings.warningTemplate);
     setError(message || "Loaded fallback starter data.");
   }
 
@@ -463,13 +512,13 @@ export default function HomePage() {
         setState(nextState);
         setSelectedTenantId(nextState.derivedTenants?.[0]?.id || "");
         setStatementTenantId(nextState.derivedTenants?.[0]?.id || "");
-        const alertTenantId = nextState.derivedTenants?.find((tenant) => tenant.alert)?.id || "";
+        const alertTenantId =
+          nextState.derivedTenants?.find((tenant) => tenant.currentMonthAlert)?.id ||
+          nextState.derivedTenants?.find((tenant) => tenant.alert)?.id ||
+          "";
         setLetterTenantId(alertTenantId);
-        setLetterBody(
-          alertTenantId
-            ? `${nextState.settings.warningTemplate}\n\nPlease contact the management office immediately to resolve your account.`
-            : nextState.settings.warningTemplate
-        );
+        const defaultLetterTenant = nextState.derivedTenants?.find((tenant) => tenant.id === alertTenantId) || null;
+        setLetterBody(defaultLetterTenant ? reminderBodyForTenant(defaultLetterTenant, nextState.settings) : nextState.settings.warningTemplate);
       } else {
         setState(null);
       }
@@ -489,10 +538,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!state || !selectedLetterTenant?.alert) return;
-    setLetterBody(
-      `${state.settings.warningTemplate}\n\nPlease contact the management office immediately to resolve your account.`
-    );
+    if (!state || !selectedLetterTenant) return;
+    setLetterBody(reminderBodyForTenant(selectedLetterTenant, state.settings));
   }, [state?.settings?.warningTemplate, selectedLetterTenant?.id]);
 
   const summary = useMemo(
@@ -1100,6 +1147,39 @@ export default function HomePage() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `laurel-woods-executive-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCurrentMonthUnpaidList() {
+    const rows = [
+      ["Tenant Name", "Unit Number", "Parking Spot", "Charge Month", "Due Date", "Current Amount Due", "Total Outstanding Balance", "Phone", "Email"],
+      ...currentMonthAlertTenants.map((tenant) => [
+        tenant.fullName,
+        tenant.unit?.unitNumber || "",
+        tenant.unit?.parkingSpot || "",
+        tenant.currentMonthAlert?.chargeMonth || "",
+        tenant.currentMonthAlert?.dueDate || "",
+        tenant.currentMonthAlert?.amountDue || 0,
+        tenant.outstandingBalance || 0,
+        tenant.phone || "",
+        tenant.email || "",
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laurel-woods-current-month-unpaid-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -1988,7 +2068,43 @@ export default function HomePage() {
           <div className="two-column">
             <section className="panel stack">
               <div>
-                <h3 className="section-title">Arrears Alerts</h3>
+                <h3 className="section-title">Rent Alerts</h3>
+                <p className="section-subtitle">Track current-month unpaid tenants after the 5th and keep the 3-month arrears warning list below.</p>
+              </div>
+              <div className="button-row" style={{ justifyContent: "start" }}>
+                <button className="action secondary" onClick={exportCurrentMonthUnpaidList} disabled={!currentMonthAlertTenants.length}>
+                  Export Current Month List
+                </button>
+              </div>
+              <div>
+                <h4 className="section-title" style={{ fontSize: "1.1rem" }}>Current Month Unpaid After 5th</h4>
+                <p className="section-subtitle">Tenants with a remaining balance for the current month once the 5th has passed.</p>
+              </div>
+              <div className="list">
+                {currentMonthAlertTenants.length ? (
+                  currentMonthAlertTenants.map((tenant) => (
+                    <button
+                      key={tenant.id}
+                      className="list-item alert"
+                      style={{ textAlign: "left", cursor: "pointer" }}
+                      onClick={() => setLetterTenantId(tenant.id)}
+                    >
+                      <h3>{tenant.fullName}</h3>
+                      <div className="meta">
+                        Unit {tenant.unit?.unitNumber || "—"} · Parking {tenant.unit?.parkingSpot || "—"}<br />
+                        Charge Month: {monthLabel(tenant.currentMonthAlert?.chargeMonth)}<br />
+                        Due Date: {longDate(tenant.currentMonthAlert?.dueDate)}<br />
+                        Current Amount Due: <strong>{money(tenant.currentMonthAlert?.amountDue || 0)}</strong><br />
+                        Total Outstanding Balance: <strong>{money(tenant.outstandingBalance)}</strong>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="empty">No current-month reminder letters are required right now.</div>
+                )}
+              </div>
+              <div>
+                <h4 className="section-title" style={{ fontSize: "1.1rem" }}>3-Month Arrears Warnings</h4>
                 <p className="section-subtitle">Red flags show 3 consecutive unpaid months or total arrears equal to 3 months of rent.</p>
               </div>
               <div className="list">
@@ -2019,33 +2135,58 @@ export default function HomePage() {
 
             <section className="panel stack">
               <div>
-                <h3 className="section-title">Warning Letter Draft</h3>
-                <p className="section-subtitle">Editable before printing.</p>
+                <h3 className="section-title">Reminder / Warning Letter Draft</h3>
+                <p className="section-subtitle">Editable before printing or saving as PDF.</p>
               </div>
-              {selectedLetterTenant?.alert ? (
+              {selectedLetterTenant ? (
                 <>
                   <div className="list-item">
                     <h3>{selectedLetterTenant.fullName}</h3>
                     <div className="meta">
                       Unit {selectedLetterTenant.unit?.unitNumber || "—"} · Parking {selectedLetterTenant.unit?.parkingSpot || "—"}<br />
-                      Warning Reason: {(selectedLetterTenant.alert.reasons || []).join("; ")}<br />
-                      Unpaid Months: {(selectedLetterTenant.alert.unpaidMonths || []).map(monthLabel).join(", ") || "—"}<br />
-                      Past Due: <strong>{money(selectedLetterTenant.alert.amountDue)}</strong>
+                      {selectedLetterTenant.currentMonthAlert ? (
+                        <>
+                          Reminder Type: Current Month Unpaid After 5th<br />
+                          Charge Month: {monthLabel(selectedLetterTenant.currentMonthAlert.chargeMonth)}<br />
+                          Due Date: {longDate(selectedLetterTenant.currentMonthAlert.dueDate)}<br />
+                          Current Amount Due: <strong>{money(selectedLetterTenant.currentMonthAlert.amountDue)}</strong><br />
+                        </>
+                      ) : null}
+                      {selectedLetterTenant.alert ? (
+                        <>
+                          Warning Reason: {(selectedLetterTenant.alert.reasons || []).join("; ")}<br />
+                          Unpaid Months: {(selectedLetterTenant.alert.unpaidMonths || []).map(monthLabel).join(", ") || "—"}<br />
+                          Past Due: <strong>{money(selectedLetterTenant.alert.amountDue)}</strong><br />
+                        </>
+                      ) : null}
+                      Total Outstanding Balance: <strong>{money(selectedLetterTenant.outstandingBalance)}</strong>
                     </div>
                   </div>
                   <div className="field">
                     <label>Letter body</label>
                     <textarea value={letterBody} onChange={(event) => setLetterBody(event.target.value)} />
                   </div>
-                  <button
-                    className="action warn"
-                    onClick={() => openPrintWindow(warningLetterHtml(state.property, selectedLetterTenant, letterBody))}
-                  >
-                    Print Warning Letter
-                  </button>
+                  <div className="button-row" style={{ justifyContent: "start" }}>
+                    {selectedLetterTenant.currentMonthAlert ? (
+                      <button
+                        className="action"
+                        onClick={() => openPrintWindow(paymentReminderLetterHtml(state.property, selectedLetterTenant, letterBody))}
+                      >
+                        Print Payment Reminder
+                      </button>
+                    ) : null}
+                    {selectedLetterTenant.alert ? (
+                      <button
+                        className="action warn"
+                        onClick={() => openPrintWindow(warningLetterHtml(state.property, selectedLetterTenant, letterBody))}
+                      >
+                        Print Warning Letter
+                      </button>
+                    ) : null}
+                  </div>
                 </>
               ) : (
-                <div className="empty">Select a flagged tenant to draft a warning letter.</div>
+                <div className="empty">Select a tenant from one of the alert lists to draft a reminder letter.</div>
               )}
             </section>
           </div>
