@@ -531,25 +531,28 @@ export default function HomePage() {
   async function importUnitMaster() {
     if (!state) return;
 
-    const nextUnits = [...state.units];
+    const importedByNumber = new Map(
+      laurelWoodsUnitMaster.map((unit) => [normalizeUnitNumber(unit.unitNumber), unit])
+    );
+    const nextUnits = state.units.map((unit) => {
+      const legacyMatch = String(unit.id || "").match(/^unit-(\d+)$/);
+      if (!legacyMatch) return unit;
+      const canonicalNumber = `1-${legacyMatch[1]}`;
+      const canonicalUnit = importedByNumber.get(canonicalNumber);
+      if (!canonicalUnit) return unit;
+      return {
+        ...unit,
+        unitNumber: canonicalNumber,
+        parkingSpot: canonicalUnit.parkingSpot || unit.parkingSpot,
+      };
+    });
     let added = 0;
     let updated = 0;
 
     for (const importedUnit of laurelWoodsUnitMaster) {
       const importedNumber = normalizeUnitNumber(importedUnit.unitNumber);
       const importedParking = String(importedUnit.parkingSpot || "").trim();
-      let matchIndex = nextUnits.findIndex((unit) => normalizeUnitNumber(unit.unitNumber) === importedNumber);
-
-      if (matchIndex < 0) {
-        const suffix = unitSuffix(importedNumber);
-        const suffixMatches = nextUnits
-          .map((unit, index) => ({ unit, index }))
-          .filter(({ unit }) => unitSuffix(unit.unitNumber) === suffix);
-
-        if (suffixMatches.length === 1) {
-          matchIndex = suffixMatches[0].index;
-        }
-      }
+      const matchIndex = nextUnits.findIndex((unit) => normalizeUnitNumber(unit.unitNumber) === importedNumber);
 
       if (matchIndex >= 0) {
         const existingUnit = nextUnits[matchIndex];
@@ -577,7 +580,9 @@ export default function HomePage() {
       units: nextUnits.sort(unitSort),
     });
 
-    window.alert(`Imported ${laurelWoodsUnitMaster.length} units. Updated ${updated} existing units and added ${added} new ones.`);
+    window.alert(
+      `Imported ${laurelWoodsUnitMaster.length} units. Updated ${updated} existing units and added ${added} new ones.`
+    );
     setState(saved);
   }
 
