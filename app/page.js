@@ -84,6 +84,12 @@ function unitIdFromNumber(unitNumber) {
     .replaceAll(/^-|-$/g, "")}`;
 }
 
+function legacyUnitIdForNumber(unitNumber) {
+  const normalized = normalizeUnitNumber(unitNumber);
+  if (!normalized.startsWith("1-")) return "";
+  return `unit-${normalized.slice(2)}`;
+}
+
 function statementHtml(property, tenant) {
   const rows = tenant.charges
     .map(
@@ -531,40 +537,41 @@ export default function HomePage() {
   async function importUnitMaster() {
     if (!state) return;
 
-    const importedByNumber = new Map(
-      laurelWoodsUnitMaster.map((unit) => [normalizeUnitNumber(unit.unitNumber), unit])
-    );
-    const nextUnits = state.units.map((unit) => {
-      const legacyMatch = String(unit.id || "").match(/^unit-(\d+)$/);
-      if (!legacyMatch) return unit;
-      const canonicalNumber = `1-${legacyMatch[1]}`;
-      const canonicalUnit = importedByNumber.get(canonicalNumber);
-      if (!canonicalUnit) return unit;
-      return {
-        ...unit,
-        unitNumber: canonicalNumber,
-        parkingSpot: canonicalUnit.parkingSpot || unit.parkingSpot,
-      };
-    });
+    const existingById = new Map(state.units.map((unit) => [unit.id, unit]));
+    const existingByNumber = new Map(state.units.map((unit) => [normalizeUnitNumber(unit.unitNumber), unit]));
+    const consumedIds = new Set();
+    const idRemap = new Map();
+    const canonicalUnits = [];
     let added = 0;
     let updated = 0;
 
     for (const importedUnit of laurelWoodsUnitMaster) {
       const importedNumber = normalizeUnitNumber(importedUnit.unitNumber);
       const importedParking = String(importedUnit.parkingSpot || "").trim();
-      const matchIndex = nextUnits.findIndex((unit) => normalizeUnitNumber(unit.unitNumber) === importedNumber);
+      const desiredId = unitIdFromNumber(importedNumber);
+      const legacyId = legacyUnitIdForNumber(importedNumber);
+      const matchedExisting =
+        (existingById.has(desiredId) && !consumedIds.has(desiredId) ? existingById.get(desiredId) : null) ||
+        (existingByNumber.has(importedNumber) && !consumedIds.has(existingByNumber.get(importedNumber).id)
+          ? existingByNumber.get(importedNumber)
+          : null) ||
+        (legacyId && existingById.has(legacyId) && !consumedIds.has(legacyId) ? existingById.get(legacyId) : null);
 
-      if (matchIndex >= 0) {
-        const existingUnit = nextUnits[matchIndex];
-        nextUnits[matchIndex] = {
-          ...existingUnit,
+      if (matchedExisting) {
+        consumedIds.add(matchedExisting.id);
+        if (matchedExisting.id !== desiredId) {
+          idRemap.set(matchedExisting.id, desiredId);
+        }
+        canonicalUnits.push({
+          ...matchedExisting,
+          id: desiredId,
           unitNumber: importedNumber,
           parkingSpot: importedParking,
-        };
+        });
         updated += 1;
       } else {
-        nextUnits.push({
-          id: unitIdFromNumber(importedNumber),
+        canonicalUnits.push({
+          id: desiredId,
           propertyId: state.property.id,
           unitNumber: importedNumber,
           parkingSpot: importedParking,
@@ -575,9 +582,26 @@ export default function HomePage() {
       }
     }
 
+    for (const unit of state.units) {
+      if (consumedIds.has(unit.id)) continue;
+      canonicalUnits.push(unit);
+    }
+
+    const nextUnits = canonicalUnits
+      .filter(
+        (unit, index, all) => all.findIndex((candidate) => normalizeUnitNumber(candidate.unitNumber) === normalizeUnitNumber(unit.unitNumber)) === index
+      )
+      .sort(unitSort);
+
+    const nextTenants = state.tenants.map((tenant) => ({
+      ...tenant,
+      unitId: idRemap.get(tenant.unitId) || tenant.unitId,
+    }));
+
     const saved = await persist({
       ...state,
-      units: nextUnits.sort(unitSort),
+      units: nextUnits,
+      tenants: nextTenants,
     });
 
     window.alert(
