@@ -1419,6 +1419,14 @@ export default function HomePage() {
     }));
   }, [selectedTenant?.id, selectedTenant?.monthlyRent, chargeForm.id]);
 
+  useEffect(() => {
+    if (!selectedTenant || paymentForm.id) return;
+    setPaymentForm((current) => ({
+      ...current,
+      tenantId: selectedTenant.id,
+    }));
+  }, [selectedTenant?.id, paymentForm.id]);
+
   if (loading) {
     return (
       <div className="login-shell">
@@ -1831,6 +1839,12 @@ export default function HomePage() {
                             <td>{payment.unappliedAmount > 0 ? money(payment.unappliedAmount) : "—"}</td>
                             <td>
                               <div className="button-row" style={{ justifyContent: "start" }}>
+                                <button
+                                  className="action secondary"
+                                  onClick={() => openPrintWindow(paymentReceiptHtml(state.property, selectedTenant, payment))}
+                                >
+                                  Print
+                                </button>
                                 <button className="action secondary" onClick={() => editPayment(payment)}>
                                   Edit
                                 </button>
