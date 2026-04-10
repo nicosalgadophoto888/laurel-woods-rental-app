@@ -14,6 +14,7 @@ const tabs = [
   { key: "payments", label: "Payments" },
   { key: "documents", label: "Documents" },
   { key: "statements", label: "Statements" },
+  { key: "reports", label: "Reports" },
   { key: "alerts", label: "Alerts" },
 ];
 
@@ -50,6 +51,15 @@ function openPrintWindow(html) {
   printWindow.document.close();
   printWindow.focus();
   setTimeout(() => printWindow.print(), 250);
+}
+
+function openPreviewWindow(html) {
+  const previewWindow = window.open("", "_blank", "width=1100,height=900");
+  if (!previewWindow) return;
+  previewWindow.document.open();
+  previewWindow.document.write(html);
+  previewWindow.document.close();
+  previewWindow.focus();
 }
 
 function escapeHtml(value) {
@@ -336,6 +346,51 @@ function allStatementsHtml(property, tenants) {
       </style>
     </head>
     <body>${sections}</body>
+  </html>`;
+}
+
+function paymentReceiptHtml(property, tenant, payment) {
+  return `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Payment Receipt</title>
+      <style>
+        body { font-family: Georgia, serif; color:#2e2418; padding:40px; line-height:1.8; }
+        .shell { max-width: 760px; margin: 0 auto; }
+        .letterhead { display:flex; align-items:center; gap:18px; margin-bottom:24px; border-bottom:1px solid #d9cdb9; padding-bottom:16px; }
+        .letterhead img { width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9; }
+        .box { border:1px solid #d9cdb9; border-radius:12px; padding:24px; margin-top:18px; }
+        .label { color:#6f6557; }
+      </style>
+    </head>
+    <body>
+      <div class="shell">
+        <div class="letterhead">
+          <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
+          <div>
+            <h1 style="margin:0;">${escapeHtml(property.name)} Payment Receipt</h1>
+            <div class="label">${escapeHtml(property.address || "")}${property.city ? `, ${escapeHtml(property.city)}` : ""}${property.state ? `, ${escapeHtml(property.state)}` : ""}</div>
+          </div>
+        </div>
+        <div class="box">
+          <p><strong>Receipt Date:</strong> ${escapeHtml(longDate(payment.paymentDate))}</p>
+          <p><strong>Tenant:</strong> ${escapeHtml(tenant.fullName)}</p>
+          <p><strong>Unit:</strong> ${escapeHtml(tenant.unit?.unitNumber || "—")}</p>
+          <p><strong>Parking Spot:</strong> ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
+          <p><strong>Amount Received:</strong> ${escapeHtml(money(payment.amount))}</p>
+          <p><strong>Payment Method:</strong> ${escapeHtml(payment.method || "Manual")}</p>
+          <p><strong>Reference:</strong> ${escapeHtml(payment.reference || "—")}</p>
+          <p><strong>Notes:</strong> ${escapeHtml(payment.notes || "—")}</p>
+        </div>
+        <div class="box">
+          <p>Thank you for your payment.</p>
+          <p>We appreciate your prompt attention to your account and your residency at Laurel Woods.</p>
+          <p>Please keep this receipt for your records. If you have any questions about your balance or payment history, contact the management office.</p>
+          <p style="margin-top:24px;">Sincerely,<br />Laurel Woods Management</p>
+        </div>
+      </div>
+    </body>
   </html>`;
 }
 
@@ -1449,18 +1504,6 @@ export default function HomePage() {
             <p>Standalone property management app for Laurel Woods.</p>
           </div>
           <div className="button-row">
-            <button className="action secondary" onClick={exportBackup}>
-              Export Backup
-            </button>
-            <button className="action secondary" onClick={exportExecutiveReport}>
-              Export Executive Report
-            </button>
-            <button className="action secondary" onClick={exportTenantList}>
-              Export Tenant List
-            </button>
-            <button className="action secondary" onClick={printAllStatements}>
-              Print All Statements
-            </button>
             <button className="action secondary" onClick={generateCurrentMonthCharges} disabled={busy}>
               Generate Current Month Charges
             </button>
@@ -2041,15 +2084,57 @@ export default function HomePage() {
             <section className="panel stack">
               <div>
                 <h3 className="section-title">Ledger View</h3>
-                <p className="section-subtitle">Rent charges, payment application, and remaining balances.</p>
+                <p className="section-subtitle">Rent charges, payment application, remaining balances, and printable receipts.</p>
               </div>
               <div className="list">
                 {derivedTenants.map((tenant) => (
                   <div key={tenant.id} className="list-item">
                     <h3>{tenant.fullName}</h3>
                     <div className="meta" style={{ marginBottom: 10 }}>
-                      Outstanding Balance: <strong>{money(tenant.outstandingBalance)}</strong>
+                      Unit {tenant.unit?.unitNumber || "—"} · Outstanding Balance: <strong>{money(tenant.outstandingBalance)}</strong>
                     </div>
+                    {tenant.payments.length ? (
+                      <>
+                        <h4 style={{ marginBottom: 10 }}>Payments</h4>
+                        <table className="table" style={{ marginBottom: 18 }}>
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Method</th>
+                              <th>Reference</th>
+                              <th>Amount</th>
+                              <th>Receipt</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tenant.payments.map((payment) => (
+                              <tr key={payment.id}>
+                                <td>{longDate(payment.paymentDate)}</td>
+                                <td>{payment.method}</td>
+                                <td>{payment.reference || "—"}</td>
+                                <td>{money(payment.amount)}</td>
+                                <td>
+                                  <div className="button-row" style={{ justifyContent: "start" }}>
+                                    <button
+                                      className="action secondary"
+                                      onClick={() => openPreviewWindow(paymentReceiptHtml(state.property, tenant, payment))}
+                                    >
+                                      Preview Receipt
+                                    </button>
+                                    <button
+                                      className="action secondary"
+                                      onClick={() => openPrintWindow(paymentReceiptHtml(state.property, tenant, payment))}
+                                    >
+                                      Print Receipt
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    ) : null}
                     <table className="table">
                       <thead>
                         <tr>
@@ -2208,17 +2293,65 @@ export default function HomePage() {
           </div>
         ) : null}
 
+        {activeTab === "reports" ? (
+          <div className="panel-grid">
+            <section className="panel stack">
+              <div>
+                <h3 className="section-title">Property Reports</h3>
+                <p className="section-subtitle">Export portfolio snapshots, tenant lists, and full property backups.</p>
+              </div>
+              <div className="button-row" style={{ justifyContent: "start" }}>
+                <button className="action secondary" onClick={exportExecutiveReport}>
+                  Export Executive Report
+                </button>
+                <button className="action secondary" onClick={exportTenantList}>
+                  Export Tenant List
+                </button>
+                <button className="action secondary" onClick={exportBackup}>
+                  Export Backup
+                </button>
+              </div>
+            </section>
+
+            <section className="panel stack">
+              <div>
+                <h3 className="section-title">Print Reports</h3>
+                <p className="section-subtitle">Print ledger statements and rent statements for management files.</p>
+              </div>
+              <div className="button-row" style={{ justifyContent: "start" }}>
+                <button className="action secondary" onClick={printAllStatements}>
+                  Print All Statements
+                </button>
+              </div>
+            </section>
+
+            <section className="panel stack">
+              <div>
+                <h3 className="section-title">Collections Reports</h3>
+                <p className="section-subtitle">Exports for current unpaid tenants and red-alert arrears cases.</p>
+              </div>
+              <div className="button-row" style={{ justifyContent: "start" }}>
+                <button className="action secondary" onClick={exportCurrentMonthUnpaidList} disabled={!currentMonthAlertTenants.length}>
+                  Export Current Month List
+                </button>
+                <button
+                  className="action secondary"
+                  onClick={exportRedAlertReport}
+                  disabled={!derivedTenants.filter((tenant) => tenant.alert).length}
+                >
+                  Export Red Alert Report
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
         {activeTab === "alerts" ? (
           <div className="two-column">
             <section className="panel stack">
               <div>
                 <h3 className="section-title">Rent Alerts</h3>
                 <p className="section-subtitle">Track current-month unpaid tenants after the 5th and keep the 3-month arrears warning list below.</p>
-              </div>
-              <div className="button-row" style={{ justifyContent: "start" }}>
-                <button className="action secondary" onClick={exportCurrentMonthUnpaidList} disabled={!currentMonthAlertTenants.length}>
-                  Export Current Month List
-                </button>
               </div>
               <div>
                 <h4 className="section-title" style={{ fontSize: "1.1rem" }}>Current Month Unpaid After 5th</h4>
@@ -2250,15 +2383,6 @@ export default function HomePage() {
               <div>
                 <h4 className="section-title" style={{ fontSize: "1.1rem" }}>3-Month Arrears Warnings</h4>
                 <p className="section-subtitle">Red flags show 3 consecutive unpaid months or total arrears equal to 3 months of rent.</p>
-              </div>
-              <div className="button-row" style={{ justifyContent: "start" }}>
-                <button
-                  className="action secondary"
-                  onClick={exportRedAlertReport}
-                  disabled={!derivedTenants.filter((tenant) => tenant.alert).length}
-                >
-                  Export Red Alert Report
-                </button>
               </div>
               <div className="list">
                 {derivedTenants.filter((tenant) => tenant.alert).length ? (
