@@ -30,6 +30,7 @@ create table if not exists tenants (
   full_name text not null,
   phone text,
   email text,
+  memo text,
   monthly_rent numeric(12,2) not null default 0,
   deposit_amount numeric(12,2) not null default 0,
   lease_start date,
