@@ -90,6 +90,10 @@ function legacyUnitIdForNumber(unitNumber) {
   return `unit-${normalized.slice(2)}`;
 }
 
+function tenantUnitLabel(tenant) {
+  return `Unit ${tenant.unit?.unitNumber || "—"} · ${tenant.fullName}`;
+}
+
 function statementHtml(property, tenant) {
   const rows = tenant.charges
     .map(
@@ -364,6 +368,21 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
 
   const derivedTenants = state?.derivedTenants || [];
+  const tenantsByUnit = useMemo(
+    () =>
+      [...derivedTenants].sort((a, b) => {
+        const unitComparison = normalizeUnitNumber(a.unit?.unitNumber).localeCompare(
+          normalizeUnitNumber(b.unit?.unitNumber),
+          undefined,
+          { numeric: true, sensitivity: "base" }
+        );
+        if (unitComparison !== 0) return unitComparison;
+        return String(a.fullName || "").localeCompare(String(b.fullName || ""), undefined, {
+          sensitivity: "base",
+        });
+      }),
+    [derivedTenants]
+  );
   const filteredTenants = derivedTenants.filter((tenant) => {
     if (tenantStatusFilter === "Active" && tenant.status !== "Active") return false;
     if (tenantStatusFilter === "Moved Out" && tenant.status !== "Moved Out") return false;
@@ -388,7 +407,7 @@ export default function HomePage() {
   });
   const selectedTenant =
     derivedTenants.find((tenant) => tenant.id === selectedTenantId) || filteredTenants[0] || derivedTenants[0] || null;
-  const selectedStatementTenant = derivedTenants.find((tenant) => tenant.id === statementTenantId) || derivedTenants[0] || null;
+  const selectedStatementTenant = derivedTenants.find((tenant) => tenant.id === statementTenantId) || tenantsByUnit[0] || null;
   const selectedLetterTenant = derivedTenants.find((tenant) => tenant.id === letterTenantId) || derivedTenants.find((tenant) => tenant.alert) || null;
 
   async function safeJson(response) {
@@ -1492,12 +1511,14 @@ export default function HomePage() {
                     Lease: {longDate(selectedTenant.leaseStart)} to {longDate(selectedTenant.leaseEnd)}<br />
                     Monthly Rent: <strong>{money(selectedTenant.monthlyRent)}</strong><br />
                     Deposit: <strong>{money(selectedTenant.depositAmount)}</strong><br />
-                    Current Balance: <strong>{money(selectedTenant.outstandingBalance)}</strong>
+                    Current Balance: <strong>{money(selectedTenant.outstandingBalance)}</strong><br />
+                    Credit on Account: <strong>{money(selectedTenant.creditBalance || 0)}</strong>
                   </div>
                   <div style={{ marginTop: 12 }}>
                     <span className={`pill ${selectedTenant.outstandingBalance > 0 ? "warn" : ""}`}>
                       {selectedTenant.outstandingBalance > 0 ? "Balance Due" : "Current"}
                     </span>
+                    {selectedTenant.creditBalance > 0 ? <span className="pill">Credit Available</span> : null}
                     <span className="pill">{selectedTenant.status}</span>
                     {selectedTenant.alert ? <span className="pill danger">Red Flag</span> : null}
                   </div>
@@ -1529,6 +1550,7 @@ export default function HomePage() {
                           <th>Method</th>
                           <th>Reference</th>
                           <th>Amount</th>
+                          <th>Credit</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
@@ -1539,6 +1561,7 @@ export default function HomePage() {
                             <td>{payment.method}</td>
                             <td>{payment.reference || "—"}</td>
                             <td>{money(payment.amount)}</td>
+                            <td>{payment.unappliedAmount > 0 ? money(payment.unappliedAmount) : "—"}</td>
                             <td>
                               <div className="button-row" style={{ justifyContent: "start" }}>
                                 <button className="action secondary" onClick={() => editPayment(payment)}>
@@ -1744,10 +1767,10 @@ export default function HomePage() {
                 <div className="field">
                   <label>Tenant</label>
                   <select value={paymentForm.tenantId} onChange={(event) => setPaymentForm((current) => ({ ...current, tenantId: event.target.value }))}>
-                    <option value="">Select tenant</option>
-                    {derivedTenants.map((tenant) => (
+                    <option value="">Select unit / tenant</option>
+                    {tenantsByUnit.map((tenant) => (
                       <option key={tenant.id} value={tenant.id}>
-                        {tenant.fullName} · Unit {tenant.unit?.unitNumber || "—"}
+                        {tenantUnitLabel(tenant)}
                       </option>
                     ))}
                   </select>
@@ -1853,10 +1876,10 @@ export default function HomePage() {
               <div className="field">
                 <label>Tenant</label>
                 <select value={documentTenantId} onChange={(event) => setDocumentTenantId(event.target.value)}>
-                  <option value="">Select tenant</option>
-                  {derivedTenants.map((tenant) => (
+                  <option value="">Select unit / tenant</option>
+                  {tenantsByUnit.map((tenant) => (
                     <option key={tenant.id} value={tenant.id}>
-                      {tenant.fullName} · Unit {tenant.unit?.unitNumber || "—"}
+                      {tenantUnitLabel(tenant)}
                     </option>
                   ))}
                 </select>
@@ -1914,9 +1937,9 @@ export default function HomePage() {
               <div className="field">
                 <label>Tenant</label>
                 <select value={statementTenantId} onChange={(event) => setStatementTenantId(event.target.value)}>
-                  {derivedTenants.map((tenant) => (
+                  {tenantsByUnit.map((tenant) => (
                     <option key={tenant.id} value={tenant.id}>
-                      {tenant.fullName} · Unit {tenant.unit?.unitNumber || "—"}
+                      {tenantUnitLabel(tenant)}
                     </option>
                   ))}
                 </select>
