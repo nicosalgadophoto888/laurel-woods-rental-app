@@ -282,7 +282,6 @@ function paymentReminderLetterHtml(property, tenant, body) {
       <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />Parking ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
       <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
       <p>Charge Month: <strong>${escapeHtml(monthLabel(currentMonthCharge?.chargeMonth))}</strong></p>
-      <p>Due Date: <strong>${escapeHtml(longDate(currentMonthCharge?.dueDate))}</strong></p>
       <p>Current Amount Due: <strong>${escapeHtml(money(currentMonthCharge?.amountDue ?? currentMonthCharge?.remainingBalance ?? 0))}</strong></p>
       <p>Total Outstanding Balance: <strong>${escapeHtml(money(tenant.outstandingBalance || 0))}</strong></p>
       <p>Sincerely,<br />Laurel Woods Management</p>
