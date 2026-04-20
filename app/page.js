@@ -317,8 +317,8 @@ function allStatementsHtml(property, tenants) {
             </thead>
             <tbody>
               ${tenant.charges
-                .map(
-                  (charge) => `
+          .map(
+            (charge) => `
                     <tr>
                       <td style="border-bottom:1px solid #d9cdb9; padding:10px 8px;">${escapeHtml(monthLabel(charge.chargeMonth))}</td>
                       <td style="border-bottom:1px solid #d9cdb9; padding:10px 8px;">${escapeHtml(money(charge.totalCharge))}</td>
@@ -327,8 +327,8 @@ function allStatementsHtml(property, tenants) {
                       <td style="border-bottom:1px solid #d9cdb9; padding:10px 8px;">${escapeHtml(charge.status)}</td>
                     </tr>
                   `
-                )
-                .join("")}
+          )
+          .join("")}
             </tbody>
           </table>
         </section>
@@ -750,27 +750,27 @@ export default function HomePage() {
       ...state,
       units: unitForm.id
         ? state.units.map((unit) =>
-            unit.id === unitForm.id
-              ? {
-                  ...unit,
-                  unitNumber: unitForm.unitNumber.trim(),
-                  parkingSpot: unitForm.parkingSpot.trim(),
-                  status: unitForm.status,
-                  defaultMonthlyRent: Number(unitForm.defaultMonthlyRent || 0),
-                }
-              : unit
-          )
-        : [
-            ...state.units,
-            {
-              id: `unit-${Date.now()}`,
-              propertyId: state.property.id,
+          unit.id === unitForm.id
+            ? {
+              ...unit,
               unitNumber: unitForm.unitNumber.trim(),
               parkingSpot: unitForm.parkingSpot.trim(),
               status: unitForm.status,
               defaultMonthlyRent: Number(unitForm.defaultMonthlyRent || 0),
-            },
-          ],
+            }
+            : unit
+        )
+        : [
+          ...state.units,
+          {
+            id: `unit-${Date.now()}`,
+            propertyId: state.property.id,
+            unitNumber: unitForm.unitNumber.trim(),
+            parkingSpot: unitForm.parkingSpot.trim(),
+            status: unitForm.status,
+            defaultMonthlyRent: Number(unitForm.defaultMonthlyRent || 0),
+          },
+        ],
     };
     await persist(nextState);
     setUnitForm(blankUnit);
@@ -805,27 +805,9 @@ export default function HomePage() {
       }),
       tenants: tenantForm.id
         ? state.tenants.map((tenant) =>
-            tenant.id === tenantForm.id
-              ? {
-                  ...tenant,
-                  fullName: tenantForm.fullName.trim(),
-                  phone: tenantForm.phone.trim(),
-                  email: tenantForm.email.trim(),
-                  memo: tenantForm.memo.trim(),
-                  unitId: tenantForm.unitId,
-                  monthlyRent: Number(tenantForm.monthlyRent || selectedUnit?.defaultMonthlyRent || 0),
-                  depositAmount: Number(tenantForm.depositAmount || 0),
-                  leaseStart: tenantForm.leaseStart,
-                  leaseEnd: tenantForm.leaseEnd,
-                  status: tenantForm.status,
-                }
-              : tenant
-          )
-        : [
-            ...state.tenants,
-            {
-              id: `tenant-${Date.now()}`,
-              propertyId: state.property.id,
+          tenant.id === tenantForm.id
+            ? {
+              ...tenant,
               fullName: tenantForm.fullName.trim(),
               phone: tenantForm.phone.trim(),
               email: tenantForm.email.trim(),
@@ -836,8 +818,26 @@ export default function HomePage() {
               leaseStart: tenantForm.leaseStart,
               leaseEnd: tenantForm.leaseEnd,
               status: tenantForm.status,
-            },
-          ],
+            }
+            : tenant
+        )
+        : [
+          ...state.tenants,
+          {
+            id: `tenant-${Date.now()}`,
+            propertyId: state.property.id,
+            fullName: tenantForm.fullName.trim(),
+            phone: tenantForm.phone.trim(),
+            email: tenantForm.email.trim(),
+            memo: tenantForm.memo.trim(),
+            unitId: tenantForm.unitId,
+            monthlyRent: Number(tenantForm.monthlyRent || selectedUnit?.defaultMonthlyRent || 0),
+            depositAmount: Number(tenantForm.depositAmount || 0),
+            leaseStart: tenantForm.leaseStart,
+            leaseEnd: tenantForm.leaseEnd,
+            status: tenantForm.status,
+          },
+        ],
     };
     const saved = await persist(nextState);
     setTenantForm(blankTenant);
@@ -863,30 +863,30 @@ export default function HomePage() {
       ...state,
       payments: paymentForm.id
         ? state.payments.map((payment) =>
-            payment.id === paymentForm.id
-              ? {
-                  ...payment,
-                  tenantId: paymentForm.tenantId,
-                  paymentDate: paymentForm.paymentDate,
-                  amount: Number(paymentForm.amount),
-                  method: paymentForm.method,
-                  reference: paymentForm.reference.trim(),
-                  notes: paymentForm.notes.trim(),
-                }
-              : payment
-          )
-        : [
-            ...state.payments,
-            {
-              id: `payment-${Date.now()}`,
+          payment.id === paymentForm.id
+            ? {
+              ...payment,
               tenantId: paymentForm.tenantId,
               paymentDate: paymentForm.paymentDate,
               amount: Number(paymentForm.amount),
               method: paymentForm.method,
               reference: paymentForm.reference.trim(),
               notes: paymentForm.notes.trim(),
-            },
-          ],
+            }
+            : payment
+        )
+        : [
+          ...state.payments,
+          {
+            id: `payment-${Date.now()}`,
+            tenantId: paymentForm.tenantId,
+            paymentDate: paymentForm.paymentDate,
+            amount: Number(paymentForm.amount),
+            method: paymentForm.method,
+            reference: paymentForm.reference.trim(),
+            notes: paymentForm.notes.trim(),
+          },
+        ],
     };
     await persist(nextState);
     setPaymentForm(blankPayment);
@@ -1110,9 +1110,9 @@ export default function HomePage() {
       tenants: state.tenants.map((tenant) =>
         tenant.id === selectedTenant.id
           ? {
-              ...tenant,
-              memo: memoDraft.trim(),
-            }
+            ...tenant,
+            memo: memoDraft.trim(),
+          }
           : tenant
       ),
     };
@@ -1359,17 +1359,17 @@ export default function HomePage() {
       tenants: state.tenants.map((item) =>
         item.id === tenant.id
           ? {
-              ...item,
-              status: "Moved Out",
-            }
+            ...item,
+            status: "Moved Out",
+          }
           : item
       ),
       units: state.units.map((unit) =>
         unit.id === tenant.unitId
           ? {
-              ...unit,
-              status: "Vacant",
-            }
+            ...unit,
+            status: "Vacant",
+          }
           : unit
       ),
     };
@@ -1385,17 +1385,17 @@ export default function HomePage() {
       tenants: state.tenants.map((item) =>
         item.id === tenant.id
           ? {
-              ...item,
-              status: "Active",
-            }
+            ...item,
+            status: "Active",
+          }
           : item
       ),
       units: state.units.map((unit) =>
         unit.id === tenant.unitId
           ? {
-              ...unit,
-              status: "Occupied",
-            }
+            ...unit,
+            status: "Occupied",
+          }
           : unit
       ),
     };
@@ -2282,6 +2282,18 @@ export default function HomePage() {
                   onClick={() => selectedStatementTenant && openPrintWindow(rentNoticeHtml(state.property, selectedStatementTenant))}
                 >
                   Print Rent Notice
+                </button>
+                <button
+                  className="action"
+                  onClick={() => selectedStatementTenant && openPrintWindow(paymentReminderLetterHtml(state.property, selectedStatementTenant, ""))}
+                >
+                  Print Payment Reminder
+                </button>
+                <button
+                  className="action warn"
+                  onClick={() => selectedStatementTenant && openPrintWindow(warningLetterHtml(state.property, selectedStatementTenant, ""))}
+                >
+                  Print Warning Letter
                 </button>
               </div>
             </section>
