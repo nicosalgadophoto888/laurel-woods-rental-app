@@ -457,6 +457,9 @@ export default function HomePage() {
   const [memoDraft, setMemoDraft] = useState("");
   const [editingMemoTenantId, setEditingMemoTenantId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checkScanning, setCheckScanning] = useState(false);
+  const [checkPreview, setCheckPreview] = useState(null);
+  const [checkScanError, setCheckScanError] = useState("");
 
   const derivedTenants = state?.derivedTenants || [];
   const currentMonthAlertTenants = derivedTenants.filter((tenant) => tenant.currentMonthAlert);
@@ -843,6 +846,74 @@ export default function HomePage() {
     setTenantForm(blankTenant);
     setSelectedTenantId(saved.derivedTenants?.slice(-1)[0]?.id || "");
     setStatementTenantId(saved.derivedTenants?.slice(-1)[0]?.id || "");
+  }
+
+  async function scanCheck(file) {
+    if (!file) return;
+    setCheckScanning(true);
+    setCheckScanError("");
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result.split(",")[1];
+      const mediaType = file.type || "image/jpeg";
+      try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: mediaType, data: base64 }
+                },
+                {
+                  type: "text",
+                  text: `Read this check image and extract the following fields. Return ONLY a JSON object with no extra text or markdown:
+{
+  "payerName": "the name printed on the check (top left)",
+  "amount": "numeric amount as a number (e.g. 1250.00)",
+  "date": "date in YYYY-MM-DD format if readable, else empty string",
+  "checkNumber": "check number as a string",
+  "bankName": "name of the bank",
+  "memo": "memo line text if any"
+}
+If a field is not readable, use an empty string for text fields and 0 for amount.`
+                }
+              ]
+            }]
+          })
+        });
+        const data = await response.json();
+        const raw = data.content?.find(b => b.type === "text")?.text || "";
+        const clean = raw.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(clean);
+
+        // Try to match payer name to a tenant
+        const payerLower = (parsed.payerName || "").toLowerCase();
+        const matchedTenant = state?.derivedTenants?.find(t =>
+          payerLower && t.fullName.toLowerCase().split(" ").some(word => word.length > 2 && payerLower.includes(word))
+        );
+
+        setPaymentForm(current => ({
+          ...current,
+          tenantId: current.tenantId || (matchedTenant ? matchedTenant.id : ""),
+          amount: parsed.amount ? String(parsed.amount) : current.amount,
+          paymentDate: parsed.date || current.paymentDate,
+          method: "Check",
+          reference: parsed.checkNumber ? `Check #${parsed.checkNumber}` : current.reference,
+          notes: [parsed.bankName, parsed.memo].filter(Boolean).join(" · ") || current.notes,
+        }));
+      } catch (err) {
+        setCheckScanError("Could not read the check. Please fill in the details manually.");
+      } finally {
+        setCheckScanning(false);
+      }
+    };
+    reader.readAsDataURL(file);
   }
 
   async function addPayment() {
@@ -2048,6 +2119,43 @@ export default function HomePage() {
               <div>
                 <h3 className="section-title">Record Payment</h3>
                 <p className="section-subtitle">Payments are credited to the oldest unpaid balances first.</p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                    padding: "10px 14px", border: "2px dashed var(--border)", borderRadius: 8,
+                    background: "var(--surface)", fontSize: 14, color: "var(--text-secondary)",
+                    opacity: checkScanning ? 0.6 : 1,
+                  }}
+                >
+                  <span style={{ fontSize: 20 }}>📷</span>
+                  <span>{checkScanning ? "Scanning check…" : "Scan a check to auto-fill"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    disabled={checkScanning}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setCheckPreview(URL.createObjectURL(file));
+                        scanCheck(file);
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {checkPreview && (
+                  <div style={{ position: "relative", display: "inline-block" }}>
+                    <img src={checkPreview} alt="Check preview" style={{ maxWidth: "100%", maxHeight: 120, borderRadius: 6, border: "1px solid var(--border)" }} />
+                    <button
+                      onClick={() => { setCheckPreview(null); setCheckScanError(""); }}
+                      style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.5)", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", fontSize: 12 }}
+                    >✕</button>
+                  </div>
+                )}
+                {checkScanError && <p style={{ color: "var(--danger, #c0392b)", fontSize: 13, margin: 0 }}>{checkScanError}</p>}
               </div>
               <div className="form-grid">
                 <div className="field">
