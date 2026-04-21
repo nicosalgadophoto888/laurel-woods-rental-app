@@ -412,6 +412,7 @@ const blankTenant = {
   depositAmount: "",
   leaseStart: "",
   leaseEnd: "",
+  carPark: "",
   status: "Active",
 };
 
@@ -795,7 +796,7 @@ export default function HomePage() {
           (tenant) => tenant.id !== tenantForm.id && tenant.unitId === oldUnitId && tenant.status === "Active"
         );
         if (unit.id === tenantForm.unitId) {
-          return { ...unit, status: "Occupied" };
+          return { ...unit, status: "Occupied", parkingSpot: tenantForm.carPark.trim() };
         }
         if (oldUnitId && unit.id === oldUnitId && oldUnitId !== tenantForm.unitId && !someoneElseStillInOldUnit) {
           return { ...unit, status: "Vacant" };
@@ -989,6 +990,7 @@ export default function HomePage() {
       depositAmount: String(tenant.depositAmount || ""),
       leaseStart: tenant.leaseStart || "",
       leaseEnd: tenant.leaseEnd || "",
+      carPark: tenant.unit?.parkingSpot || "",
       status: tenant.status || "Active",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1660,6 +1662,10 @@ export default function HomePage() {
                 <div className="field">
                   <label>Lease end</label>
                   <input type="date" value={tenantForm.leaseEnd} onChange={(event) => setTenantForm((current) => ({ ...current, leaseEnd: event.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>Car park</label>
+                  <input type="text" value={tenantForm.carPark} placeholder="e.g. A12" onChange={(event) => setTenantForm((current) => ({ ...current, carPark: event.target.value }))} />
                 </div>
               </div>
               <div className="button-row" style={{ justifyContent: "start" }}>
