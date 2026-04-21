@@ -458,6 +458,8 @@ export default function HomePage() {
   const [editingMemoTenantId, setEditingMemoTenantId] = useState("");
   const [busy, setBusy] = useState(false);
   const [checkScanning, setCheckScanning] = useState(false);
+  const [reportFrom, setReportFrom] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10));
+  const [reportTo, setReportTo] = useState(new Date().toISOString().slice(0, 10));
   const [checkPreview, setCheckPreview] = useState(null);
   const [checkScanError, setCheckScanError] = useState("");
 
@@ -1394,6 +1396,84 @@ If a field is not readable, use an empty string for text fields and 0 for amount
     const link = document.createElement("a");
     link.href = url;
     link.download = `laurel-woods-red-alert-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function paymentsInRange() {
+    if (!state) return [];
+    return state.payments
+      .filter((p) => p.paymentDate >= reportFrom && p.paymentDate <= reportTo)
+      .sort((a, b) => a.paymentDate.localeCompare(b.paymentDate))
+      .map((p) => {
+        const tenant = derivedTenants.find((t) => t.id === p.tenantId);
+        return { ...p, tenant };
+      });
+  }
+
+  function printPaymentsReport() {
+    if (!state) return;
+    const payments = paymentsInRange();
+    const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const rows = payments.map((p) => `
+      <tr>
+        <td>${escapeHtml(longDate(p.paymentDate))}</td>
+        <td>${escapeHtml(p.tenant?.fullName || "—")}</td>
+        <td>${escapeHtml(p.tenant?.unit?.unitNumber || "—")}</td>
+        <td>${escapeHtml(money(p.amount))}</td>
+        <td>${escapeHtml(p.method || "—")}</td>
+        <td>${escapeHtml(p.reference || "—")}</td>
+        <td>${escapeHtml(p.notes || "—")}</td>
+      </tr>`).join("");
+    const html = `<!DOCTYPE html><html><head><title>Payments Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 13px; padding: 30px; color: #222; }
+      h1 { font-size: 20px; margin-bottom: 4px; }
+      p { margin: 2px 0 16px; color: #555; font-size: 12px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #f0f0f0; text-align: left; padding: 8px 10px; font-size: 12px; border-bottom: 2px solid #ccc; }
+      td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+      tr:last-child td { border-bottom: none; }
+      .total { text-align: right; font-weight: bold; font-size: 14px; margin-top: 16px; }
+      @media print { body { padding: 10px; } }
+    </style></head><body>
+    <h1>Payments Report — ${escapeHtml(state.property?.name || "Laurel Woods")}</h1>
+    <p>${escapeHtml(longDate(reportFrom))} to ${escapeHtml(longDate(reportTo))} &nbsp;·&nbsp; ${payments.length} payment${payments.length !== 1 ? "s" : ""}</p>
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Tenant</th><th>Unit</th><th>Amount</th><th>Method</th><th>Reference</th><th>Notes</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="total">Total Collected: ${escapeHtml(money(total))}</div>
+    </body></html>`;
+    openPrintWindow(html);
+  }
+
+  function exportPaymentsReportCsv() {
+    if (!state) return;
+    const payments = paymentsInRange();
+    const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const rows = [
+      ["Date", "Tenant", "Unit", "Amount", "Method", "Reference", "Notes"],
+      ...payments.map((p) => [
+        p.paymentDate,
+        p.tenant?.fullName || "",
+        p.tenant?.unit?.unitNumber || "",
+        p.amount || 0,
+        p.method || "",
+        p.reference || "",
+        p.notes || "",
+      ]),
+      [],
+      ["", "", "Total", total, "", "", ""],
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `payments-report-${reportFrom}-to-${reportTo}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -2460,6 +2540,39 @@ If a field is not readable, use an empty string for text fields and 0 for amount
               <div className="button-row" style={{ justifyContent: "start" }}>
                 <button className="action secondary" onClick={printAllStatements}>
                   Print All Statements
+                </button>
+              </div>
+            </section>
+
+            <section className="panel stack">
+              <div>
+                <h3 className="section-title">Payments Report</h3>
+                <p className="section-subtitle">All payments recorded within a date range — tenant, unit, amount, method, and check details.</p>
+              </div>
+              <div className="form-grid">
+                <div className="field">
+                  <label>From</label>
+                  <input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>To</label>
+                  <input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} />
+                </div>
+              </div>
+              {state && paymentsInRange().length > 0 ? (
+                <div className="fine-print">
+                  {paymentsInRange().length} payment{paymentsInRange().length !== 1 ? "s" : ""} found
+                  &nbsp;·&nbsp; Total: <strong>{money(paymentsInRange().reduce((s, p) => s + Number(p.amount || 0), 0))}</strong>
+                </div>
+              ) : state ? (
+                <div className="fine-print">No payments found for this date range.</div>
+              ) : null}
+              <div className="button-row" style={{ justifyContent: "start" }}>
+                <button className="action secondary" onClick={printPaymentsReport} disabled={!state || paymentsInRange().length === 0}>
+                  Print Report
+                </button>
+                <button className="action secondary" onClick={exportPaymentsReportCsv} disabled={!state || paymentsInRange().length === 0}>
+                  Export CSV
                 </button>
               </div>
             </section>
