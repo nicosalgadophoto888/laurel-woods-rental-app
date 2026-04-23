@@ -150,16 +150,10 @@ function statementHtml(property, tenant) {
       </style>
     </head>
     <body>
-      <div class="letterhead">
-        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-        <div>
-          <h1>${escapeHtml(property.name)} Ledger Statement</h1>
-        </div>
-      </div>
+      <h1 style="margin-bottom:12px;">Ledger Statement</h1>
       <div class="meta">
         Tenant: ${escapeHtml(tenant.fullName)}<br />
         Unit: ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />
-        Parking: ${escapeHtml(tenant.unit?.parkingSpot || "—")}<br />
         Printed: ${escapeHtml(longDate(new Date().toISOString()))}
       </div>
       <h3 style="margin-top:24px;">Charge Ledger</h3>
@@ -208,16 +202,10 @@ function rentNoticeHtml(property, tenant) {
       </style>
     </head>
     <body>
-      <div class="letterhead">
-        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-        <div>
-          <h1>${escapeHtml(property.name)} Rent Notice</h1>
-        </div>
-      </div>
+      <h1 style="margin-bottom:16px;">Rent Notice</h1>
       <div class="box">
         <p>Tenant: <strong>${escapeHtml(tenant.fullName)}</strong></p>
         <p>Unit: <strong>${escapeHtml(tenant.unit?.unitNumber || "—")}</strong></p>
-        <p>Parking Spot: <strong>${escapeHtml(tenant.unit?.parkingSpot || "—")}</strong></p>
         <p>Current Charge Month: <strong>${escapeHtml(monthLabel(latestCharge?.chargeMonth))}</strong></p>
         <p>Due Date: <strong>${escapeHtml(longDate(latestCharge?.dueDate))}</strong></p>
         <p>Current Amount Due: <strong>${escapeHtml(money(latestCharge?.remainingBalance ?? 0))}</strong></p>
@@ -240,14 +228,8 @@ function warningLetterHtml(property, tenant, body) {
       </style>
     </head>
     <body>
-      <div class="letterhead">
-        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-        <div>
-          <h1>${escapeHtml(property.name)}</h1>
-        </div>
-      </div>
       <p>${escapeHtml(longDate(new Date().toISOString()))}</p>
-      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />Parking ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
+      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}</p>
       <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
       <p>Warning Reason: ${escapeHtml((tenant.alert?.reasons || []).join("; ") || "Past due balance")}</p>
       <p>Unpaid Months: ${escapeHtml((tenant.alert?.unpaidMonths || []).map(monthLabel).join(", ") || "—")}</p>
@@ -265,21 +247,17 @@ function paymentReminderLetterHtml(property, tenant, body) {
       <meta charset="utf-8" />
       <title>Payment Reminder</title>
       <style>
-        body { font-family: Georgia, serif; color:#2e2418; padding:40px; line-height:1.8; }
-        .letterhead { display:flex; align-items:center; gap:18px; margin-bottom:20px; }
-        .letterhead img { width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9; }
+        body { font-family: Georgia, serif; color:#2e2418; padding:40px; line-height:1.8; max-width:720px; margin:0 auto; }
+        h1 { font-size:2.4em; text-align:center; margin-bottom:8px; }
+        .subtitle { text-align:center; font-size:1.1em; color:#6f6557; margin-bottom:32px; }
+        .divider { border:none; border-top:1px solid #d9cdb9; margin:24px 0; }
       </style>
     </head>
     <body>
-      <div class="letterhead">
-        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-        <div>
-          <h1>${escapeHtml(property.name)}</h1>
-          <div>Payment Reminder</div>
-        </div>
-      </div>
-      <p>${escapeHtml(longDate(new Date().toISOString()))}</p>
-      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />Parking ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
+      <h1>Payment Reminder</h1>
+      <div class="subtitle">${escapeHtml(longDate(new Date().toISOString()))}</div>
+      <hr class="divider" />
+      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}</p>
       <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
       <p>Charge Month: <strong>${escapeHtml(monthLabel(currentMonthCharge?.chargeMonth))}</strong></p>
       <p>Current Amount Due: <strong>${escapeHtml(money(currentMonthCharge?.amountDue ?? currentMonthCharge?.remainingBalance ?? 0))}</strong></p>
@@ -294,14 +272,10 @@ function allStatementsHtml(property, tenants) {
     .map(
       (tenant) => `
         <section style="page-break-after: always; margin-bottom: 40px;">
-          <div style="display:flex; align-items:center; gap:18px; margin-bottom: 12px;">
-            <img src="${LOGO_SRC}" alt="Laurel Woods logo" style="width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9;" />
-            <h1 style="margin: 0;">${escapeHtml(property.name)} Ledger Statement</h1>
-          </div>
+          <h1 style="margin: 0 0 12px 0;">Ledger Statement</h1>
           <div style="color:#6f6557; font-size:14px; line-height:1.7; margin-bottom: 14px;">
             Tenant: ${escapeHtml(tenant.fullName)}<br />
             Unit: ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />
-            Parking: ${escapeHtml(tenant.unit?.parkingSpot || "—")}<br />
             Outstanding Balance: <strong>${escapeHtml(money(tenant.outstandingBalance))}</strong>
           </div>
           <table style="width:100%; border-collapse: collapse;">
@@ -365,18 +339,11 @@ function paymentReceiptHtml(property, tenant, payment) {
     </head>
     <body>
       <div class="shell">
-        <div class="letterhead">
-          <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-          <div>
-            <h1 style="margin:0;">${escapeHtml(property.name)} Payment Receipt</h1>
-            <div class="label">${escapeHtml(property.address || "")}${property.city ? `, ${escapeHtml(property.city)}` : ""}${property.state ? `, ${escapeHtml(property.state)}` : ""}</div>
-          </div>
-        </div>
+        <h1 style="margin:0 0 20px 0;">Payment Receipt</h1>
         <div class="box">
           <p><strong>Receipt Date:</strong> ${escapeHtml(longDate(payment.paymentDate))}</p>
           <p><strong>Tenant:</strong> ${escapeHtml(tenant.fullName)}</p>
           <p><strong>Unit:</strong> ${escapeHtml(tenant.unit?.unitNumber || "—")}</p>
-          <p><strong>Parking Spot:</strong> ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
           <p><strong>Amount Received:</strong> ${escapeHtml(money(payment.amount))}</p>
           <p><strong>Payment Method:</strong> ${escapeHtml(payment.method || "Manual")}</p>
           <p><strong>Reference:</strong> ${escapeHtml(payment.reference || "—")}</p>
@@ -1437,7 +1404,7 @@ If a field is not readable, use an empty string for text fields and 0 for amount
       .total { text-align: right; font-weight: bold; font-size: 14px; margin-top: 16px; }
       @media print { body { padding: 10px; } }
     </style></head><body>
-    <h1>Payments Report — ${escapeHtml(state.property?.name || "Laurel Woods")}</h1>
+    <h1>Payments Report</h1>
     <p>${escapeHtml(longDate(reportFrom))} to ${escapeHtml(longDate(reportTo))} &nbsp;·&nbsp; ${payments.length} payment${payments.length !== 1 ? "s" : ""}</p>
     <table>
       <thead><tr>
