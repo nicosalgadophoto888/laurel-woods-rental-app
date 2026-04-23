@@ -247,10 +247,10 @@ function paymentReminderLetterHtml(property, tenant, body) {
       <meta charset="utf-8" />
       <title>Payment Reminder</title>
       <style>
-        body { font-family: Georgia, serif; color:#2e2418; padding:40px; line-height:1.8; max-width:720px; margin:0 auto; }
-        h1 { font-size:2.4em; text-align:center; margin-bottom:8px; }
-        .subtitle { text-align:center; font-size:1.1em; color:#6f6557; margin-bottom:32px; }
-        .divider { border:none; border-top:1px solid #d9cdb9; margin:24px 0; }
+        body { font-family: Georgia, serif; color:#2e2418; padding:32px 48px 40px; line-height:1.8; max-width:720px; margin:0 auto; }
+        h1 { font-size:2.4em; text-align:center; margin:0 0 6px 0; }
+        .subtitle { text-align:center; font-size:1.05em; color:#6f6557; margin-bottom:24px; }
+        .divider { border:none; border-top:1px solid #d9cdb9; margin:20px 0; }
       </style>
     </head>
     <body>
@@ -258,7 +258,7 @@ function paymentReminderLetterHtml(property, tenant, body) {
       <div class="subtitle">${escapeHtml(longDate(new Date().toISOString()))}</div>
       <hr class="divider" />
       <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}</p>
-      <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
+      ${body?.trim() ? `<p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>` : ""}
       <p>Charge Month: <strong>${escapeHtml(monthLabel(currentMonthCharge?.chargeMonth))}</strong></p>
       <p>Current Amount Due: <strong>${escapeHtml(money(currentMonthCharge?.amountDue ?? currentMonthCharge?.remainingBalance ?? 0))}</strong></p>
       <p>Total Outstanding Balance: <strong>${escapeHtml(money(tenant.outstandingBalance || 0))}</strong></p>
