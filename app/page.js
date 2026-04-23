@@ -248,7 +248,7 @@ function paymentReminderLetterHtml(property, tenant, body) {
       <title>Payment Reminder</title>
       <style>
         body { font-family: Georgia, serif; color:#2e2418; padding:32px 48px 40px; line-height:1.8; max-width:720px; margin:0 auto; }
-        h1 { font-size:2.4em; text-align:center; margin:0 0 6px 0; }
+        h1 { font-size:2.4em; text-align:center; margin:80px 0 6px 0; }
         .subtitle { text-align:center; font-size:1.05em; color:#6f6557; margin-bottom:24px; }
         .divider { border:none; border-top:1px solid #d9cdb9; margin:20px 0; }
       </style>
