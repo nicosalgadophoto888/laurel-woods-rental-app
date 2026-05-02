@@ -150,16 +150,10 @@ function statementHtml(property, tenant) {
       </style>
     </head>
     <body>
-      <div class="letterhead">
-        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-        <div>
-          <h1>${escapeHtml(property.name)} Ledger Statement</h1>
-        </div>
-      </div>
+      <h1 style="margin-bottom:12px;">Ledger Statement</h1>
       <div class="meta">
         Tenant: ${escapeHtml(tenant.fullName)}<br />
         Unit: ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />
-        Parking: ${escapeHtml(tenant.unit?.parkingSpot || "—")}<br />
         Printed: ${escapeHtml(longDate(new Date().toISOString()))}
       </div>
       <h3 style="margin-top:24px;">Charge Ledger</h3>
@@ -208,16 +202,10 @@ function rentNoticeHtml(property, tenant) {
       </style>
     </head>
     <body>
-      <div class="letterhead">
-        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-        <div>
-          <h1>${escapeHtml(property.name)} Rent Notice</h1>
-        </div>
-      </div>
+      <h1 style="margin-bottom:16px;">Rent Notice</h1>
       <div class="box">
         <p>Tenant: <strong>${escapeHtml(tenant.fullName)}</strong></p>
         <p>Unit: <strong>${escapeHtml(tenant.unit?.unitNumber || "—")}</strong></p>
-        <p>Parking Spot: <strong>${escapeHtml(tenant.unit?.parkingSpot || "—")}</strong></p>
         <p>Current Charge Month: <strong>${escapeHtml(monthLabel(latestCharge?.chargeMonth))}</strong></p>
         <p>Due Date: <strong>${escapeHtml(longDate(latestCharge?.dueDate))}</strong></p>
         <p>Current Amount Due: <strong>${escapeHtml(money(latestCharge?.remainingBalance ?? 0))}</strong></p>
@@ -240,14 +228,8 @@ function warningLetterHtml(property, tenant, body) {
       </style>
     </head>
     <body>
-      <div class="letterhead">
-        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-        <div>
-          <h1>${escapeHtml(property.name)}</h1>
-        </div>
-      </div>
       <p>${escapeHtml(longDate(new Date().toISOString()))}</p>
-      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />Parking ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
+      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}</p>
       <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
       <p>Warning Reason: ${escapeHtml((tenant.alert?.reasons || []).join("; ") || "Past due balance")}</p>
       <p>Unpaid Months: ${escapeHtml((tenant.alert?.unpaidMonths || []).map(monthLabel).join(", ") || "—")}</p>
@@ -265,23 +247,19 @@ function paymentReminderLetterHtml(property, tenant, body) {
       <meta charset="utf-8" />
       <title>Payment Reminder</title>
       <style>
-        body { font-family: Georgia, serif; color:#2e2418; padding:40px; line-height:1.8; }
-        .letterhead { display:flex; align-items:center; gap:18px; margin-bottom:20px; }
-        .letterhead img { width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9; }
+        body { font-family: Georgia, serif; color:#2e2418; padding:32px 48px 40px; line-height:1.8; max-width:720px; margin:0 auto; }
+        h1 { font-size:2.4em; text-align:center; margin:80px 0 6px 0; }
+        .subtitle { text-align:center; font-size:1.05em; color:#6f6557; margin-bottom:24px; }
+        .divider { border:none; border-top:1px solid #d9cdb9; margin:20px 0; }
       </style>
     </head>
     <body>
-      <div class="letterhead">
-        <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-        <div>
-          <h1>${escapeHtml(property.name)}</h1>
-          <div>Payment Reminder</div>
-        </div>
-      </div>
-      <p>${escapeHtml(longDate(new Date().toISOString()))}</p>
-      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />Parking ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
-      <p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>
-      <p>Due Date: <strong>${escapeHtml(longDate(currentMonthCharge?.dueDate))}</strong></p>
+      <h1>Payment Reminder</h1>
+      <div class="subtitle">${escapeHtml(longDate(new Date().toISOString()))}</div>
+      <hr class="divider" />
+      <p>${escapeHtml(tenant.fullName)}<br />Unit ${escapeHtml(tenant.unit?.unitNumber || "—")}</p>
+      ${body?.trim() ? `<p>${escapeHtml(body).replaceAll("\n", "<br />")}</p>` : ""}
+      <p>Charge Month: <strong>${escapeHtml(monthLabel(currentMonthCharge?.chargeMonth))}</strong></p>
       <p>Current Amount Due: <strong>${escapeHtml(money(currentMonthCharge?.amountDue ?? currentMonthCharge?.remainingBalance ?? 0))}</strong></p>
       <p>Total Outstanding Balance: <strong>${escapeHtml(money(tenant.outstandingBalance || 0))}</strong></p>
       <p>Sincerely,<br />Laurel Woods Management</p>
@@ -294,14 +272,10 @@ function allStatementsHtml(property, tenants) {
     .map(
       (tenant) => `
         <section style="page-break-after: always; margin-bottom: 40px;">
-          <div style="display:flex; align-items:center; gap:18px; margin-bottom: 12px;">
-            <img src="${LOGO_SRC}" alt="Laurel Woods logo" style="width:84px; height:84px; object-fit:cover; border-radius:50%; border:1px solid #d9cdb9;" />
-            <h1 style="margin: 0;">${escapeHtml(property.name)} Ledger Statement</h1>
-          </div>
+          <h1 style="margin: 0 0 12px 0;">Ledger Statement</h1>
           <div style="color:#6f6557; font-size:14px; line-height:1.7; margin-bottom: 14px;">
             Tenant: ${escapeHtml(tenant.fullName)}<br />
             Unit: ${escapeHtml(tenant.unit?.unitNumber || "—")}<br />
-            Parking: ${escapeHtml(tenant.unit?.parkingSpot || "—")}<br />
             Outstanding Balance: <strong>${escapeHtml(money(tenant.outstandingBalance))}</strong>
           </div>
           <table style="width:100%; border-collapse: collapse;">
@@ -365,18 +339,11 @@ function paymentReceiptHtml(property, tenant, payment) {
     </head>
     <body>
       <div class="shell">
-        <div class="letterhead">
-          <img src="${LOGO_SRC}" alt="Laurel Woods logo" />
-          <div>
-            <h1 style="margin:0;">${escapeHtml(property.name)} Payment Receipt</h1>
-            <div class="label">${escapeHtml(property.address || "")}${property.city ? `, ${escapeHtml(property.city)}` : ""}${property.state ? `, ${escapeHtml(property.state)}` : ""}</div>
-          </div>
-        </div>
+        <h1 style="margin:0 0 20px 0;">Payment Receipt</h1>
         <div class="box">
           <p><strong>Receipt Date:</strong> ${escapeHtml(longDate(payment.paymentDate))}</p>
           <p><strong>Tenant:</strong> ${escapeHtml(tenant.fullName)}</p>
           <p><strong>Unit:</strong> ${escapeHtml(tenant.unit?.unitNumber || "—")}</p>
-          <p><strong>Parking Spot:</strong> ${escapeHtml(tenant.unit?.parkingSpot || "—")}</p>
           <p><strong>Amount Received:</strong> ${escapeHtml(money(payment.amount))}</p>
           <p><strong>Payment Method:</strong> ${escapeHtml(payment.method || "Manual")}</p>
           <p><strong>Reference:</strong> ${escapeHtml(payment.reference || "—")}</p>
@@ -412,6 +379,7 @@ const blankTenant = {
   depositAmount: "",
   leaseStart: "",
   leaseEnd: "",
+  carPark: "",
   status: "Active",
 };
 
@@ -456,6 +424,11 @@ export default function HomePage() {
   const [memoDraft, setMemoDraft] = useState("");
   const [editingMemoTenantId, setEditingMemoTenantId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checkScanning, setCheckScanning] = useState(false);
+  const [reportFrom, setReportFrom] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10));
+  const [reportTo, setReportTo] = useState(new Date().toISOString().slice(0, 10));
+  const [checkPreview, setCheckPreview] = useState(null);
+  const [checkScanError, setCheckScanError] = useState("");
 
   const derivedTenants = state?.derivedTenants || [];
   const currentMonthAlertTenants = derivedTenants.filter((tenant) => tenant.currentMonthAlert);
@@ -795,7 +768,7 @@ export default function HomePage() {
           (tenant) => tenant.id !== tenantForm.id && tenant.unitId === oldUnitId && tenant.status === "Active"
         );
         if (unit.id === tenantForm.unitId) {
-          return { ...unit, status: "Occupied" };
+          return { ...unit, status: "Occupied", parkingSpot: tenantForm.carPark.trim() };
         }
         if (oldUnitId && unit.id === oldUnitId && oldUnitId !== tenantForm.unitId && !someoneElseStillInOldUnit) {
           return { ...unit, status: "Vacant" };
@@ -842,6 +815,74 @@ export default function HomePage() {
     setTenantForm(blankTenant);
     setSelectedTenantId(saved.derivedTenants?.slice(-1)[0]?.id || "");
     setStatementTenantId(saved.derivedTenants?.slice(-1)[0]?.id || "");
+  }
+
+  async function scanCheck(file) {
+    if (!file) return;
+    setCheckScanning(true);
+    setCheckScanError("");
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result.split(",")[1];
+      const mediaType = file.type || "image/jpeg";
+      try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: { type: "base64", media_type: mediaType, data: base64 }
+                },
+                {
+                  type: "text",
+                  text: `Read this check image and extract the following fields. Return ONLY a JSON object with no extra text or markdown:
+{
+  "payerName": "the name printed on the check (top left)",
+  "amount": "numeric amount as a number (e.g. 1250.00)",
+  "date": "date in YYYY-MM-DD format if readable, else empty string",
+  "checkNumber": "check number as a string",
+  "bankName": "name of the bank",
+  "memo": "memo line text if any"
+}
+If a field is not readable, use an empty string for text fields and 0 for amount.`
+                }
+              ]
+            }]
+          })
+        });
+        const data = await response.json();
+        const raw = data.content?.find(b => b.type === "text")?.text || "";
+        const clean = raw.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(clean);
+
+        // Try to match payer name to a tenant
+        const payerLower = (parsed.payerName || "").toLowerCase();
+        const matchedTenant = state?.derivedTenants?.find(t =>
+          payerLower && t.fullName.toLowerCase().split(" ").some(word => word.length > 2 && payerLower.includes(word))
+        );
+
+        setPaymentForm(current => ({
+          ...current,
+          tenantId: current.tenantId || (matchedTenant ? matchedTenant.id : ""),
+          amount: parsed.amount ? String(parsed.amount) : current.amount,
+          paymentDate: parsed.date || current.paymentDate,
+          method: "Check",
+          reference: parsed.checkNumber ? `Check #${parsed.checkNumber}` : current.reference,
+          notes: [parsed.bankName, parsed.memo].filter(Boolean).join(" · ") || current.notes,
+        }));
+      } catch (err) {
+        setCheckScanError("Could not read the check. Please fill in the details manually.");
+      } finally {
+        setCheckScanning(false);
+      }
+    };
+    reader.readAsDataURL(file);
   }
 
   async function addPayment() {
@@ -989,6 +1030,7 @@ export default function HomePage() {
       depositAmount: String(tenant.depositAmount || ""),
       leaseStart: tenant.leaseStart || "",
       leaseEnd: tenant.leaseEnd || "",
+      carPark: tenant.unit?.parkingSpot || "",
       status: tenant.status || "Active",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1321,6 +1363,84 @@ export default function HomePage() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `laurel-woods-red-alert-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function paymentsInRange() {
+    if (!state) return [];
+    return state.payments
+      .filter((p) => p.paymentDate >= reportFrom && p.paymentDate <= reportTo)
+      .sort((a, b) => a.paymentDate.localeCompare(b.paymentDate))
+      .map((p) => {
+        const tenant = derivedTenants.find((t) => t.id === p.tenantId);
+        return { ...p, tenant };
+      });
+  }
+
+  function printPaymentsReport() {
+    if (!state) return;
+    const payments = paymentsInRange();
+    const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const rows = payments.map((p) => `
+      <tr>
+        <td>${escapeHtml(longDate(p.paymentDate))}</td>
+        <td>${escapeHtml(p.tenant?.fullName || "—")}</td>
+        <td>${escapeHtml(p.tenant?.unit?.unitNumber || "—")}</td>
+        <td>${escapeHtml(money(p.amount))}</td>
+        <td>${escapeHtml(p.method || "—")}</td>
+        <td>${escapeHtml(p.reference || "—")}</td>
+        <td>${escapeHtml(p.notes || "—")}</td>
+      </tr>`).join("");
+    const html = `<!DOCTYPE html><html><head><title>Payments Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 13px; padding: 30px; color: #222; }
+      h1 { font-size: 20px; margin-bottom: 4px; }
+      p { margin: 2px 0 16px; color: #555; font-size: 12px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #f0f0f0; text-align: left; padding: 8px 10px; font-size: 12px; border-bottom: 2px solid #ccc; }
+      td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+      tr:last-child td { border-bottom: none; }
+      .total { text-align: right; font-weight: bold; font-size: 14px; margin-top: 16px; }
+      @media print { body { padding: 10px; } }
+    </style></head><body>
+    <h1>Payments Report</h1>
+    <p>${escapeHtml(longDate(reportFrom))} to ${escapeHtml(longDate(reportTo))} &nbsp;·&nbsp; ${payments.length} payment${payments.length !== 1 ? "s" : ""}</p>
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Tenant</th><th>Unit</th><th>Amount</th><th>Method</th><th>Reference</th><th>Notes</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="total">Total Collected: ${escapeHtml(money(total))}</div>
+    </body></html>`;
+    openPrintWindow(html);
+  }
+
+  function exportPaymentsReportCsv() {
+    if (!state) return;
+    const payments = paymentsInRange();
+    const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const rows = [
+      ["Date", "Tenant", "Unit", "Amount", "Method", "Reference", "Notes"],
+      ...payments.map((p) => [
+        p.paymentDate,
+        p.tenant?.fullName || "",
+        p.tenant?.unit?.unitNumber || "",
+        p.amount || 0,
+        p.method || "",
+        p.reference || "",
+        p.notes || "",
+      ]),
+      [],
+      ["", "", "Total", total, "", "", ""],
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `payments-report-${reportFrom}-to-${reportTo}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -1660,6 +1780,10 @@ export default function HomePage() {
                 <div className="field">
                   <label>Lease end</label>
                   <input type="date" value={tenantForm.leaseEnd} onChange={(event) => setTenantForm((current) => ({ ...current, leaseEnd: event.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>Car park</label>
+                  <input type="text" value={tenantForm.carPark} placeholder="e.g. A12" onChange={(event) => setTenantForm((current) => ({ ...current, carPark: event.target.value }))} />
                 </div>
               </div>
               <div className="button-row" style={{ justifyContent: "start" }}>
@@ -2043,6 +2167,43 @@ export default function HomePage() {
                 <h3 className="section-title">Record Payment</h3>
                 <p className="section-subtitle">Payments are credited to the oldest unpaid balances first.</p>
               </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                    padding: "10px 14px", border: "2px dashed var(--border)", borderRadius: 8,
+                    background: "var(--surface)", fontSize: 14, color: "var(--text-secondary)",
+                    opacity: checkScanning ? 0.6 : 1,
+                  }}
+                >
+                  <span style={{ fontSize: 20 }}>📷</span>
+                  <span>{checkScanning ? "Scanning check…" : "Scan a check to auto-fill"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    disabled={checkScanning}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setCheckPreview(URL.createObjectURL(file));
+                        scanCheck(file);
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {checkPreview && (
+                  <div style={{ position: "relative", display: "inline-block" }}>
+                    <img src={checkPreview} alt="Check preview" style={{ maxWidth: "100%", maxHeight: 120, borderRadius: 6, border: "1px solid var(--border)" }} />
+                    <button
+                      onClick={() => { setCheckPreview(null); setCheckScanError(""); }}
+                      style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.5)", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", fontSize: 12 }}
+                    >✕</button>
+                  </div>
+                )}
+                {checkScanError && <p style={{ color: "var(--danger, #c0392b)", fontSize: 13, margin: 0 }}>{checkScanError}</p>}
+              </div>
               <div className="form-grid">
                 <div className="field">
                   <label>Tenant</label>
@@ -2346,6 +2507,39 @@ export default function HomePage() {
               <div className="button-row" style={{ justifyContent: "start" }}>
                 <button className="action secondary" onClick={printAllStatements}>
                   Print All Statements
+                </button>
+              </div>
+            </section>
+
+            <section className="panel stack">
+              <div>
+                <h3 className="section-title">Payments Report</h3>
+                <p className="section-subtitle">All payments recorded within a date range — tenant, unit, amount, method, and check details.</p>
+              </div>
+              <div className="form-grid">
+                <div className="field">
+                  <label>From</label>
+                  <input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>To</label>
+                  <input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} />
+                </div>
+              </div>
+              {state && paymentsInRange().length > 0 ? (
+                <div className="fine-print">
+                  {paymentsInRange().length} payment{paymentsInRange().length !== 1 ? "s" : ""} found
+                  &nbsp;·&nbsp; Total: <strong>{money(paymentsInRange().reduce((s, p) => s + Number(p.amount || 0), 0))}</strong>
+                </div>
+              ) : state ? (
+                <div className="fine-print">No payments found for this date range.</div>
+              ) : null}
+              <div className="button-row" style={{ justifyContent: "start" }}>
+                <button className="action secondary" onClick={printPaymentsReport} disabled={!state || paymentsInRange().length === 0}>
+                  Print Report
+                </button>
+                <button className="action secondary" onClick={exportPaymentsReportCsv} disabled={!state || paymentsInRange().length === 0}>
+                  Export CSV
                 </button>
               </div>
             </section>
